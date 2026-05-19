@@ -418,6 +418,9 @@ export class GameManager {
   }
 
   _updateBosses(dt) {
+    // Shield phase duration grows with stage: 3.5s at stage 0, +0.4s per stage
+    const shieldPhaseDur = 3.5 + this.stageIndex * 0.4;
+
     for (const boss of this.enemies) {
       if (!boss.isBoss || !boss.alive || boss.exploding) continue;
 
@@ -427,6 +430,20 @@ export class GameManager {
         const others = ALL_ATTRS.filter(a => a !== boss.attribute);
         boss.attribute = others[Math.floor(Math.random() * others.length)];
         this._spawnHitParticles(boss.x, boss.y, '#FFFFFF', 10);
+      }
+
+      // Shield phase timer (both boss types)
+      if (boss.bossShieldTimer === null) boss.bossShieldTimer = shieldPhaseDur;
+      boss.bossShieldTimer -= dt;
+      if (boss.bossShieldTimer <= 0) {
+        boss.bossShieldTimer = shieldPhaseDur;
+        if (boss.isGrandBoss) {
+          // Grand boss: 0=none → 1=damage shield → 2=draw-immune → 0 …
+          boss.bossShieldPhase = (boss.bossShieldPhase + 1) % 3;
+        } else {
+          // Normal boss: toggle 0↔1
+          boss.bossShieldPhase = boss.bossShieldPhase === 0 ? 1 : 0;
+        }
       }
 
       if (boss.isGrandBoss) {
@@ -539,7 +556,8 @@ export class GameManager {
       this._applyDamage(enemy, Math.max(1, Math.round(2 * power)), bullet.attribute);
       if (bullet.isSplit && !bullet.isFragment) this._spawnSplitFragments(bullet, enemy);
     } else if (result === 'DRAW') {
-      if (enemy.drawImmune) {
+      const drawImmune = enemy.drawImmune || (enemy.isBoss && enemy.bossShieldPhase === 2);
+      if (drawImmune) {
         this._spawnHitParticles(enemy.x, enemy.y, '#888888', 5);
       } else {
         this._applyDamage(enemy, Math.max(1, Math.round(1 * power)), bullet.attribute);
@@ -551,6 +569,11 @@ export class GameManager {
   }
 
   _applyDamage(enemy, dmg, attackAttr) {
+    // Damage shield: block all damage
+    if (enemy.isBoss && enemy.bossShieldPhase === 1) {
+      this._spawnHitParticles(enemy.x, enemy.y, '#00AAFF', 6);
+      return;
+    }
     enemy.hp -= dmg;
     if (enemy.hp <= 0) {
       this._destroyEnemy(enemy, attackAttr);
@@ -642,7 +665,11 @@ export class GameManager {
   _onEnemyEscaped(enemy) {
     const stageMult = this.stageIndex / 3 + 1;
     const diffMult  = DIFFICULTY_CONFIG[this.difficulty].damageMult;
-    const penalty   = Math.round(BASE_HIT_PENALTY * stageMult * diffMult) * (enemy.isBoss ? 3 : 1);
+    const typeMult  = enemy.isBoss ? 3
+      : enemy.enemyType === ENEMY_TYPE.LARGE  ? 5
+      : enemy.enemyType === ENEMY_TYPE.MEDIUM ? 3
+      : 1;
+    const penalty   = Math.round(BASE_HIT_PENALTY * stageMult * diffMult * typeMult);
 
     if (!enemy.isBoss) {
       // Already invincible — block for free

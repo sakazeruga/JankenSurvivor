@@ -343,6 +343,33 @@ export class Renderer {
         ctx.lineWidth   = isGrandBoss ? 4 - r : 3;
         ctx.beginPath(); ctx.arc(0, 0, radius + 4 + r * 8, 0, Math.PI * 2); ctx.stroke();
       }
+
+      // Shield visual
+      const sp = enemy.bossShieldPhase;
+      if (!exploding && (sp === 1 || sp === 2)) {
+        const t     = Date.now() / 160;
+        const pulse = 0.55 + 0.45 * Math.abs(Math.sin(t));
+        const sr    = radius + (isGrandBoss ? 26 : 20);
+        if (sp === 1) {
+          // Damage shield — cyan/blue
+          ctx.strokeStyle = `rgba(0,200,255,${pulse})`;
+          ctx.lineWidth   = 6;
+          ctx.beginPath(); ctx.arc(0, 0, sr, 0, Math.PI * 2); ctx.stroke();
+          ctx.strokeStyle = `rgba(100,230,255,${pulse * 0.4})`;
+          ctx.lineWidth   = 14;
+          ctx.beginPath(); ctx.arc(0, 0, sr + 4, 0, Math.PI * 2); ctx.stroke();
+        } else {
+          // Draw-immune shield — white/silver (grand boss only)
+          ctx.strokeStyle = `rgba(220,220,255,${pulse})`;
+          ctx.lineWidth   = 6;
+          ctx.setLineDash([8, 5]);
+          ctx.beginPath(); ctx.arc(0, 0, sr, 0, Math.PI * 2); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.strokeStyle = `rgba(180,180,255,${pulse * 0.4})`;
+          ctx.lineWidth   = 14;
+          ctx.beginPath(); ctx.arc(0, 0, sr + 4, 0, Math.PI * 2); ctx.stroke();
+        }
+      }
     } else if (enemyType === 'MEDIUM') {
       ctx.strokeStyle = 'rgba(255,255,255,0.4)';
       ctx.lineWidth   = 2;
@@ -367,6 +394,19 @@ export class Renderer {
     if (drawImmune && !exploding) {
       ctx.fillStyle = '#AAA'; ctx.font = `${radius * 0.45}px sans-serif`;
       ctx.fillText('⊘', radius * 0.6, -radius * 0.6);
+    }
+
+    if (isBoss && !exploding) {
+      const sp = enemy.bossShieldPhase;
+      if (sp === 1) {
+        ctx.fillStyle = '#00DDFF'; ctx.font = `bold 11px sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('🛡 GUARD', 0, radius + (isGrandBoss ? 30 : 24));
+      } else if (sp === 2) {
+        ctx.fillStyle = '#CCCCFF'; ctx.font = `bold 11px sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('⊘ BARRIER', 0, radius + 30);
+      }
     }
 
     if (!exploding && maxHp > 1) {

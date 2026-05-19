@@ -14,8 +14,11 @@ export class Enemy {
     this.drawImmune = drawImmune;
 
     if (isBoss) {
-      this.radius         = isGrandBoss ? GRAND_BOSS_RADIUS : BOSS_RADIUS;
-      this.attrCycleTimer = 0;
+      this.radius           = isGrandBoss ? GRAND_BOSS_RADIUS : BOSS_RADIUS;
+      this.attrCycleTimer   = 0;
+      // Shield phases: 0=none, 1=damage shield, 2=draw-immune (grand boss only)
+      this.bossShieldPhase  = 1;    // start shielded
+      this.bossShieldTimer  = null; // null = needs initialization in game.js
       if (isGrandBoss) {
         this.skillTimer = 0;
         this.skillPhase = 0;  // 0=A 1=B 2=C
