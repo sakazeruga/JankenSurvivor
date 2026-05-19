@@ -236,8 +236,9 @@ export class GameManager {
     this.columnPurchases = {};   // { ROCK:0, SCISSORS:0, PAPER:0, UTIL:0 } — doubles cost per column
     this.offeredSkills   = [];
     this.skillSelected   = false;
-    this.shieldCharges   = 0;
-    this.bombsUsed       = 0;
+    this.shieldCharges    = 0;
+    this.shieldInvincTimer = 0;
+    this.bombsUsed        = 0;
   }
 
   _loadStage(index) {
@@ -258,9 +259,10 @@ export class GameManager {
     this.enemies      = [];
     this.bullets      = [];
     this.lasers       = [];
-    this.bossWarning  = 0;
-    this.cautionTimer = 0;
-    this.bossDeathRings = [];
+    this.bossWarning       = 0;
+    this.cautionTimer      = 0;
+    this.shieldInvincTimer = 0;
+    this.bossDeathRings    = [];
   }
 
   // ── Private: skill offer ─────────────────────────────────────────────────
@@ -321,11 +323,12 @@ export class GameManager {
   // ── Private: main update ─────────────────────────────────────────────────
 
   _updatePlaying(dt) {
-    if (this.damageFlash    > 0) this.damageFlash    -= dt;
-    if (this.bombFlash      > 0) this.bombFlash      -= dt;
-    if (this.bossDeathFlash > 0) this.bossDeathFlash -= dt * 1.8;
-    if (this.bossWarning    > 0) this.bossWarning    -= dt;
-    if (this.cautionTimer   > 0) this.cautionTimer   -= dt;
+    if (this.damageFlash      > 0) this.damageFlash      -= dt;
+    if (this.bombFlash        > 0) this.bombFlash        -= dt;
+    if (this.bossDeathFlash   > 0) this.bossDeathFlash   -= dt * 1.8;
+    if (this.bossWarning      > 0) this.bossWarning      -= dt;
+    if (this.cautionTimer     > 0) this.cautionTimer     -= dt;
+    if (this.shieldInvincTimer > 0) this.shieldInvincTimer -= dt;
 
     for (const ring of this.bossDeathRings) ring.life -= dt * 1.4;
     this.bossDeathRings = this.bossDeathRings.filter(r => r.life > 0);
@@ -632,10 +635,19 @@ export class GameManager {
     const diffMult  = DIFFICULTY_CONFIG[this.difficulty].damageMult;
     const penalty   = Math.round(BASE_HIT_PENALTY * stageMult * diffMult) * (enemy.isBoss ? 3 : 1);
 
-    if (!enemy.isBoss && this.shieldCharges > 0) {
-      this.shieldCharges--;
-      this.damageFlash = 0.3;
-      return;
+    if (!enemy.isBoss) {
+      // Already invincible — block hit for free
+      if (this.shieldInvincTimer > 0) {
+        this.damageFlash = 0.2;
+        return;
+      }
+      // Have charges — consume one and activate 2-second invincibility
+      if (this.shieldCharges > 0) {
+        this.shieldCharges--;
+        this.shieldInvincTimer = 2.0;
+        this.damageFlash = 0.3;
+        return;
+      }
     }
 
     this.score      -= penalty;

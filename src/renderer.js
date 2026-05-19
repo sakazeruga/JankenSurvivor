@@ -508,10 +508,15 @@ export class Renderer {
     ctx.textBaseline = 'middle';
     ctx.fillText(diffCfg.label, CANVAS_W - 16, 28);
 
-    if ((gm.shieldCharges || 0) > 0) {
-      ctx.fillStyle = '#3498DB';
-      ctx.font      = '13px sans-serif';
-      ctx.fillText(`🛡×${gm.shieldCharges}`, CANVAS_W - 16, 52);
+    if ((gm.shieldCharges || 0) > 0 || (gm.shieldInvincTimer || 0) > 0) {
+      ctx.font = '13px sans-serif';
+      if ((gm.shieldInvincTimer || 0) > 0) {
+        ctx.fillStyle = '#00DDFF';
+        ctx.fillText(`🛡×${gm.shieldCharges} ▶${gm.shieldInvincTimer.toFixed(1)}s`, CANVAS_W - 16, 52);
+      } else {
+        ctx.fillStyle = '#3498DB';
+        ctx.fillText(`🛡×${gm.shieldCharges}`, CANVAS_W - 16, 52);
+      }
     }
   }
 
