@@ -151,6 +151,13 @@ export class Renderer {
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     }
 
+    // Shield invincibility overlay (blue)
+    if ((gm.shieldInvincTimer || 0) > 0) {
+      const pulse = 0.5 + 0.5 * Math.abs(Math.sin(Date.now() / 120));
+      ctx.fillStyle = `rgba(30,120,255,${0.12 + 0.06 * pulse})`;
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    }
+
     // Damage flash (red)
     if (gm.damageFlash > 0) {
       ctx.fillStyle = `rgba(231,76,60,${Math.min(0.45, gm.damageFlash)})`;
@@ -508,14 +515,19 @@ export class Renderer {
     ctx.textBaseline = 'middle';
     ctx.fillText(diffCfg.label, CANVAS_W - 16, 28);
 
-    if ((gm.shieldCharges || 0) > 0 || (gm.shieldInvincTimer || 0) > 0) {
+    if ((gm.shieldCharges || 0) > 0) {
       ctx.font = '13px sans-serif';
-      if ((gm.shieldInvincTimer || 0) > 0) {
+      const inv = gm.shieldInvincTimer || 0;
+      const ct  = gm.shieldCTTimer    || 0;
+      if (inv > 0) {
         ctx.fillStyle = '#00DDFF';
-        ctx.fillText(`🛡×${gm.shieldCharges} ▶${gm.shieldInvincTimer.toFixed(1)}s`, CANVAS_W - 16, 52);
+        ctx.fillText(`🛡 Lv.${gm.shieldCharges} ▶${inv.toFixed(1)}s`, CANVAS_W - 16, 52);
+      } else if (ct > 0) {
+        ctx.fillStyle = '#7799BB';
+        ctx.fillText(`🛡 Lv.${gm.shieldCharges} CT${ct.toFixed(1)}s`, CANVAS_W - 16, 52);
       } else {
         ctx.fillStyle = '#3498DB';
-        ctx.fillText(`🛡×${gm.shieldCharges}`, CANVAS_W - 16, 52);
+        ctx.fillText(`🛡 Lv.${gm.shieldCharges} 待機中`, CANVAS_W - 16, 52);
       }
     }
   }
