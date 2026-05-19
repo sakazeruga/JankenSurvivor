@@ -110,9 +110,13 @@ export class GameManager {
 
     // Split bullet (rare_split) — only fires with SCISSORS
     if (attribute === ATTR.SCISSORS) {
-      const splitLevel = this.skills['SCISSORS_rare_split'] || 0;
+      const splitLevel   = this.skills['SCISSORS_rare_split'] || 0;
       if (splitLevel > 0 && Math.random() < 0.10 + 0.10 * splitLevel) {
-        this.bullets.push(new Bullet({ x: sx, y: sy, attribute, target, speedMult, isSplit: true }));
+        const bulletsLv  = this.skills['SCISSORS_com_bullets'] || 0;
+        const splitCount = Math.max(1, 2 * bulletsLv); // Lv0=1, Lv1=2, Lv2=4, Lv3=6…
+        for (let i = 0; i < splitCount; i++) {
+          this.bullets.push(new Bullet({ x: sx, y: sy, attribute, target, speedMult, isSplit: true }));
+        }
       }
     }
 
@@ -313,11 +317,14 @@ export class GameManager {
     const dist = Math.hypot(ddx, ddy);
     if (dist < 1) return;
 
-    const power = this._getAttackPower(attribute);
+    // Laser uses double com_power scaling (+120%/Lv instead of +60%/Lv)
+    const comPower   = this.skills[`${attribute}_com_power`] || 0;
+    const rarePower  = this.skills['rare_power'] || 0;
+    const laserPower = (1 + 1.2 * comPower) * (1 + 0.4 * rarePower);
     this.lasers.push(new Laser({
       x: sx, y: sy,
       dx: ddx / dist, dy: ddy / dist,
-      damage: Math.max(1, Math.round(power * 0.5)),
+      damage: Math.max(1, Math.round(laserPower * 0.5)),
       duration: 0.55,
     }));
   }
@@ -551,7 +558,10 @@ export class GameManager {
     const power = this._getAttackPower(bullet.attribute);
 
     if (bullet.isPierce) {
-      this._applyDamage(enemy, Math.max(1, Math.round(2 * power)), bullet.attribute);
+      // Speed level also boosts pierce damage (+60% per level, same as attack power)
+      const speedLv    = this.skills[`${ATTR.ROCK}_com_speed`] || 0;
+      const piercePow  = power * (1 + 0.6 * speedLv);
+      this._applyDamage(enemy, Math.max(1, Math.round(2 * piercePow)), bullet.attribute);
     } else if (result === 'WIN') {
       this._applyDamage(enemy, Math.max(1, Math.round(2 * power)), bullet.attribute);
       if (bullet.isSplit && !bullet.isFragment) this._spawnSplitFragments(bullet, enemy);

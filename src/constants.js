@@ -63,9 +63,9 @@ export const ATTR_COMMON_SKILLS = [
 
 // Rare skill for each attribute column (25% chance to appear instead of common)
 export const ATTR_RARE_SKILLS = {
-  [ATTR.ROCK]:     { id: 'rare_pierce', label: '貫通弾',   desc: '20%で貫通弾を追加発射\n相性無視・固定2倍ダメ\nLv毎に確率+10%', rarity: 'rare', baseCost: 600 },
-  [ATTR.SCISSORS]: { id: 'rare_split',  label: '分裂弾',   desc: '20%で分裂弾を追加発射\n命中時に2方向へ分裂\nLv毎に確率+10%', rarity: 'rare', baseCost: 600 },
-  [ATTR.PAPER]:    { id: 'rare_laser',  label: 'レーザー', desc: '20%でレーザーを追加発射\n直線全体0.5倍ダメ\nLv毎に確率+10%',  rarity: 'rare', baseCost: 600 },
+  [ATTR.ROCK]:     { id: 'rare_pierce', label: '貫通弾',   desc: '20%で貫通弾を追加発射\n相性無視・2倍ダメ\n弾速強化で攻撃力も上昇(+60%/Lv)', rarity: 'rare', baseCost: 600 },
+  [ATTR.SCISSORS]: { id: 'rare_split',  label: '分裂弾',   desc: '20%で分裂弾を追加発射\n命中時に2方向へ分裂\n弾数強化で発射数×2増加(2,4,6…)', rarity: 'rare', baseCost: 600 },
+  [ATTR.PAPER]:    { id: 'rare_laser',  label: 'レーザー', desc: '20%でレーザーを追加発射\n直線全体0.5倍ダメ\n攻撃力強化が2倍適用(+120%/Lv)',  rarity: 'rare', baseCost: 600 },
 };
 
 // 汎用 column: common skills
