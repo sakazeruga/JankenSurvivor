@@ -71,7 +71,11 @@ export class Renderer {
   }
 
   _fitToWindow() {
-    const ratio = Math.min(window.innerWidth / CANVAS_W, window.innerHeight / CANVAS_H);
+    // Use innerHeight directly so the body flexbox always matches the actual visible area
+    const h     = window.innerHeight;
+    const w     = window.innerWidth;
+    document.body.style.height = h + 'px';
+    const ratio = Math.min(w / CANVAS_W, h / CANVAS_H);
     this.canvas.style.width  = Math.floor(CANVAS_W * ratio) + 'px';
     this.canvas.style.height = Math.floor(CANVAS_H * ratio) + 'px';
   }

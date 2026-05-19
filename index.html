@@ -6,13 +6,18 @@
   <title>じゃんけんサバイバー</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    html {
+      height: -webkit-fill-available;
+    }
     body {
       background: #000;
       display: flex;
       justify-content: center;
       align-items: center;
       width: 100vw;
-      height: 100vh;
+      height: 100vh;                 /* fallback */
+      height: -webkit-fill-available;/* Safari / LINE */
+      height: 100dvh;                /* Chrome 108+ / Slack — dynamic, excludes browser UI */
       overflow: hidden;
       touch-action: none;
     }
