@@ -3,7 +3,7 @@ import { Enemy, Bullet, Laser, Particle } from './entities.js';
 import { generateStage } from './stage.js';
 import {
   ATTR, ALL_ATTRS, ATTR_COLOR, CHAIN_RADIUS, CHAIN_MAX_DEPTH,
-  KILL_LINE_Y, CANVAS_W,
+  KILL_LINE_Y, CANVAS_W, CANVAS_H,
   DIFFICULTY, DIFFICULTY_CONFIG,
   INITIAL_SCORE, BASE_HIT_PENALTY, BOMBS_PER_STAGE,
   ATTR_COMMON_SKILLS, ATTR_RARE_SKILLS,
@@ -475,13 +475,14 @@ export class GameManager {
   _executeGrandBossSkill(boss, phase) {
     const stageIdx  = this.stageIndex;
     const stageMult = stageIdx / 3 + 1;
-    // Spread enemies across the full field height to reduce chain-kill clustering
-    const fieldH = KILL_LINE_Y - boss.y - 80;
+    // Spawn in upper half of screen (between boss and screen midpoint)
+    const yMin = boss.y + 60;
+    const yMax = CANVAS_H / 2;  // screen midpoint ≈ 380px
 
     const spawnInField = (ctor) => {
       const x = 36 + Math.random() * (CANVAS_W - 72);
-      const y = boss.y + 70 + Math.random() * Math.max(fieldH, 100);
-      if (y < KILL_LINE_Y - 20) ctor(x, y);
+      const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
+      ctor(x, y);
     };
 
     if (phase === 0) {
