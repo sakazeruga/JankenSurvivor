@@ -57,8 +57,8 @@ export const ENEMY_TYPE_CONFIG = {
 // Common skills shown in Rock/Scissors/Paper columns (one chosen randomly per column)
 export const ATTR_COMMON_SKILLS = [
   { id: 'com_bullets', label: '弾数追加',   desc: '発射弾数+1（累積）',   rarity: 'common', baseCost: 300 },
-  { id: 'com_speed',   label: '弾速強化',   desc: '弾速+20%（累積）',     rarity: 'common', baseCost: 300 },
-  { id: 'com_power',   label: '攻撃力強化', desc: '攻撃力+20%（累積）',   rarity: 'common', baseCost: 300 },
+  { id: 'com_speed',   label: '弾速強化',   desc: '弾速+30%（累積）',     rarity: 'common', baseCost: 300 },
+  { id: 'com_power',   label: '攻撃力強化', desc: '攻撃力+50%（累積）',   rarity: 'common', baseCost: 300 },
 ];
 
 // Rare skill for each attribute column (25% chance to appear instead of common)

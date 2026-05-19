@@ -75,7 +75,7 @@ export class GameManager {
     // Per-attribute common skill levels
     const speedKey   = `${attribute}_com_speed`;
     const bulletsKey = `${attribute}_com_bullets`;
-    const speedMult  = 1 + 0.2 * (this.skills[speedKey]   || 0);
+    const speedMult  = 1 + 0.3 * (this.skills[speedKey]   || 0);
     const bulletCount = 1 + (this.skills[bulletsKey] || 0);
 
     const sfxMap = {
@@ -191,7 +191,7 @@ export class GameManager {
   _getAttackPower(attribute) {
     const comPower  = attribute ? (this.skills[`${attribute}_com_power`] || 0) : 0;
     const rarePower = this.skills['rare_power'] || 0;
-    return (1 + 0.2 * comPower) * (1 + 0.3 * rarePower);
+    return (1 + 0.5 * comPower) * (1 + 0.3 * rarePower);
   }
 
   _maxBombs() {
