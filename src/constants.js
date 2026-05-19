@@ -70,14 +70,14 @@ export const ATTR_RARE_SKILLS = {
 
 // 汎用 column: common skills
 export const UTIL_COMMON_SKILLS = [
-  { id: 'util_bomb',  label: '無料ボム',   desc: 'ボム使用可能回数+1',    rarity: 'common', baseCost: 400 },
-  { id: 'util_score', label: 'スコア倍率', desc: 'スコア獲得量×1.1倍',   rarity: 'common', baseCost: 400 },
+  { id: 'util_bomb',   label: '無料ボム',   desc: 'ボム使用可能回数+1',              rarity: 'common', baseCost: 400 },
+  { id: 'util_score',  label: 'スコア倍率', desc: 'スコア獲得量×1.1倍',             rarity: 'common', baseCost: 400 },
+  { id: 'rare_shield', label: '守護盾',     desc: '被弾直後2秒間無敵を付与\n（累積可）', rarity: 'common', baseCost: 400 },
 ];
 
 // 汎用 column: rare skills (one drawn randomly at 25% chance)
 export const UTIL_RARE_SKILLS = [
-  { id: 'rare_shield', label: '守護盾',   desc: '被弾ペナルティを1回無効\n（累積可）',   rarity: 'rare', baseCost: 600 },
-  { id: 'rare_power',  label: '全力強化', desc: '全攻撃力+30%（累積）',                 rarity: 'rare', baseCost: 600 },
+  { id: 'rare_power', label: '全力強化', desc: '全攻撃力+30%（累積）', rarity: 'rare', baseCost: 600 },
 ];
 
 // ── Colors ─────────────────────────────────────────────────────────────────
