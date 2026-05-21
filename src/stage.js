@@ -40,7 +40,9 @@ function distributeAttributes(total, rng) {
 // ── Wave builder ───────────────────────────────────────────────────────────
 function buildWave(stageIdx, waveIdx, rng) {
   const isGrandBossWave = waveIdx === 2;
-  const count  = enemyCount(stageIdx);
+  const isMidBossWave   = waveIdx === 1;
+  // Wave 2 (waveIdx=1) is twice as long
+  const count  = enemyCount(stageIdx) * (isMidBossWave ? 2 : 1);
   const speed  = enemySpeed(stageIdx);
   const hpMult = hpMultiplier(stageIdx);
   const dist   = distributeAttributes(count, rng);
@@ -66,6 +68,20 @@ function buildWave(stageIdx, waveIdx, rng) {
   for (let i = defs.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [defs[i], defs[j]] = [defs[j], defs[i]];
+  }
+
+  // Mid-boss at exact midpoint of Wave 2
+  if (isMidBossWave) {
+    const midBossAttr = ALL_ATTRS[Math.floor(rng() * 3)];
+    // HP = half of normal boss HP (normalBossHp = 20 * 2^stageIdx)
+    defs.splice(Math.floor(defs.length / 2), 0, {
+      attribute: midBossAttr,
+      isMidBoss: true,
+      speed: speed / 3,
+      hp: Math.round(10 * Math.pow(2, stageIdx)),
+      x: CANVAS_W / 2,
+      y: SPAWN_Y,
+    });
   }
 
   // Boss at end of every wave

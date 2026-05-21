@@ -3,7 +3,7 @@ import {
   ATTR, ALL_ATTRS, ATTR_COLOR, ATTR_SYMBOL, ATTR_LABEL,
   COLORS, ENEMY_RADIUS,
   DIFFICULTY, DIFFICULTY_CONFIG,
-  BASE_HIT_PENALTY,
+  BASE_HIT_PENALTY, VERSION,
 } from './constants.js';
 import { GameState } from './game.js';
 
@@ -89,11 +89,15 @@ export class Renderer {
     if (gm.state === GameState.TITLE) { this._drawTitle(); return; }
     if (gm.state === GameState.DIFFICULTY_SELECT) { this._drawDifficultySelect(); return; }
 
+    const isPaused = gm.state === GameState.PAUSED;
+    if (isPaused) ctx.filter = 'blur(5px)';
     this._drawPlayField(gm);
-    if (gm.paused)                          this._drawPauseOverlay();
-    if (gm.state === GameState.WAVE_RESULT) this._drawSkillShop(gm);
-    if (gm.state === GameState.GAME_OVER)   this._drawGameOver(gm);
-    if (gm.state === GameState.GAME_CLEAR)  this._drawGameClear(gm);
+    ctx.filter = 'none';
+
+    if (isPaused)                           { this._drawPauseOverlay(); return; }
+    if (gm.state === GameState.WAVE_RESULT)   this._drawSkillShop(gm);
+    if (gm.state === GameState.GAME_OVER)     this._drawGameOver(gm);
+    if (gm.state === GameState.GAME_CLEAR)    this._drawGameClear(gm);
   }
 
   // ── Play field ───────────────────────────────────────────────────────────
@@ -296,7 +300,7 @@ export class Renderer {
 
   _drawEnemy(enemy) {
     const { ctx } = this;
-    const { x, y, radius, attribute, scale, alpha, exploding, hp, maxHp, isBoss, isGrandBoss, enemyType, drawImmune } = enemy;
+    const { x, y, radius, attribute, scale, alpha, exploding, hp, maxHp, isBoss, isGrandBoss, isMidBoss, enemyType, drawImmune } = enemy;
     const color = ATTR_COLOR[attribute];
 
     ctx.save();
@@ -317,7 +321,19 @@ export class Renderer {
       ctx.globalAlpha = alpha;
     }
 
-    if (!isBoss && enemyType === 'LARGE') {
+    if (isMidBoss) {
+      const t     = Date.now() / 500;
+      const pulse = 0.65 + 0.35 * Math.sin(t);
+      const auraR = radius * 2.6;
+      const grad2 = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, auraR);
+      grad2.addColorStop(0, '#FF8C0099'); grad2.addColorStop(1, 'transparent');
+      ctx.globalAlpha = alpha * pulse;
+      ctx.fillStyle = grad2;
+      ctx.beginPath(); ctx.arc(0, 0, auraR, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = alpha;
+    }
+
+    if (!isBoss && !isMidBoss && enemyType === 'LARGE') {
       ctx.strokeStyle = color;
       ctx.lineWidth   = 3;
       ctx.globalAlpha = alpha * 0.5;
@@ -376,6 +392,14 @@ export class Renderer {
           ctx.beginPath(); ctx.arc(0, 0, sr + 4, 0, Math.PI * 2); ctx.stroke();
         }
       }
+    } else if (isMidBoss) {
+      // Orange/gold double ring
+      ctx.strokeStyle = '#FF8C00';
+      ctx.lineWidth   = 3;
+      ctx.beginPath(); ctx.arc(0, 0, radius + 4, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth   = 2;
+      ctx.beginPath(); ctx.arc(0, 0, radius + 10, 0, Math.PI * 2); ctx.stroke();
     } else if (enemyType === 'MEDIUM') {
       ctx.strokeStyle = 'rgba(255,255,255,0.4)';
       ctx.lineWidth   = 2;
@@ -397,6 +421,12 @@ export class Renderer {
       ctx.fillText('👑'.repeat(crownCount), 0, -radius - 14);
     }
 
+    if (isMidBoss && !exploding) {
+      ctx.fillStyle = '#FFD700';
+      ctx.font      = `${radius * 0.6}px sans-serif`;
+      ctx.fillText('★', 0, -radius - 14);
+    }
+
     if (drawImmune && !exploding) {
       ctx.fillStyle = '#AAA'; ctx.font = `${radius * 0.45}px sans-serif`;
       ctx.fillText('⊘', radius * 0.6, -radius * 0.6);
@@ -416,14 +446,14 @@ export class Renderer {
     }
 
     if (!exploding && maxHp > 1) {
-      const bw = radius * (isBoss ? 2.2 : 1.8);
-      const bh = isBoss ? 7 : 5;
+      const bw = radius * (isBoss ? 2.2 : isMidBoss ? 2.0 : 1.8);
+      const bh = (isBoss || isMidBoss) ? 7 : 5;
       const bx = -bw / 2;
       const by = radius + 8;
       ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, bh);
-      ctx.fillStyle = isBoss ? (isGrandBoss ? '#CC00FF' : '#FFD700') : color;
+      ctx.fillStyle = isBoss ? (isGrandBoss ? '#CC00FF' : '#FFD700') : isMidBoss ? '#FF8C00' : color;
       ctx.fillRect(bx, by, bw * (hp / maxHp), bh);
-      if (isBoss) {
+      if (isBoss || isMidBoss) {
         ctx.fillStyle = '#FFF'; ctx.font = '10px sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'top';
         ctx.fillText(`${hp} / ${maxHp}`, 0, by + bh + 2);
@@ -529,6 +559,13 @@ export class Renderer {
     ctx.strokeStyle = 'rgba(255,255,255,0.07)';
     ctx.lineWidth   = 1;
     ctx.beginPath(); ctx.moveTo(0, 72); ctx.lineTo(CANVAS_W, 72); ctx.stroke();
+
+    // Pause button (top-right corner)
+    ctx.fillStyle    = 'rgba(255,255,255,0.40)';
+    ctx.font         = '18px sans-serif';
+    ctx.textAlign    = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText(gm.state === GameState.PAUSED ? '▶' : '⏸', CANVAS_W - 8, 5);
 
     const stageMult  = gm.stageIndex / 3 + 1;
     const diffMult   = DIFFICULTY_CONFIG[gm.difficulty]?.damageMult ?? 1;
@@ -900,18 +937,22 @@ export class Renderer {
 
   _drawPauseOverlay() {
     const { ctx } = this;
-    ctx.fillStyle = 'rgba(0,0,0,0.68)';
+    ctx.fillStyle = 'rgba(0,0,0,0.58)';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-    ctx.fillStyle    = '#FFF';
-    ctx.font         = 'bold 44px sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('⏸ PAUSE', CANVAS_W / 2, CANVAS_H / 2 - 20);
 
-    ctx.fillStyle = COLORS.UI_DIM;
-    ctx.font      = '17px sans-serif';
-    ctx.fillText('タップして再開', CANVAS_W / 2, CANVAS_H / 2 + 26);
+    ctx.fillStyle = 'rgba(255,255,255,0.90)';
+    ctx.font      = '72px sans-serif';
+    ctx.fillText('⏸', CANVAS_W / 2, CANVAS_H / 2 - 44);
+
+    ctx.font      = 'bold 38px sans-serif';
+    ctx.fillText('PAUSE', CANVAS_W / 2, CANVAS_H / 2 + 18);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font      = '16px sans-serif';
+    ctx.fillText('タップして再開', CANVAS_W / 2, CANVAS_H / 2 + 64);
   }
 
   // ── Difficulty select ─────────────────────────────────────────────────────
@@ -1012,7 +1053,11 @@ export class Renderer {
     ctx.fillStyle = '#FFF'; ctx.font = 'bold 26px sans-serif';
     ctx.fillText('タップしてはじめる', CANVAS_W / 2, sby + 33);
     ctx.fillStyle = COLORS.UI_DIM; ctx.font = '13px sans-serif';
-    ctx.fillText('Rock · Scissors · Paper — Survive!', CANVAS_W / 2, CANVAS_H - 30);
+    ctx.fillText('Rock · Scissors · Paper — Survive!', CANVAS_W / 2, CANVAS_H - 46);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font      = '11px sans-serif';
+    ctx.fillText(VERSION, CANVAS_W / 2, CANVAS_H - 24);
   }
 
   // ── Hit-testing helpers ───────────────────────────────────────────────────
@@ -1037,7 +1082,7 @@ export class Renderer {
   }
 
   isPauseBtn(cx, cy) {
-    return cx >= CANVAS_W - 40 && cx <= CANVAS_W - 6 && cy >= 4 && cy <= 38;
+    return cx >= CANVAS_W - 44 && cy <= 30;
   }
 
   isShareBtn(cx, cy) {

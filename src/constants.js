@@ -2,6 +2,8 @@
 export const CANVAS_W = 390;
 export const CANVAS_H = 760;
 
+export const VERSION = 'v1.1.0';
+
 // ── Attribute definitions ──────────────────────────────────────────────────
 export const ATTR = Object.freeze({ ROCK: 'ROCK', SCISSORS: 'SCISSORS', PAPER: 'PAPER' });
 export const ALL_ATTRS = [ATTR.ROCK, ATTR.SCISSORS, ATTR.PAPER];
@@ -94,6 +96,7 @@ export const COLORS = {
 export const ENEMY_RADIUS        = 24;
 export const BOSS_RADIUS         = 38;
 export const GRAND_BOSS_RADIUS   = 52;
+export const MID_BOSS_RADIUS     = 46;
 export const BULLET_RADIUS       = 10;
 export const BTN_AREA_H     = 130;
 export const KILL_LINE_Y    = CANVAS_H - BTN_AREA_H - 10;

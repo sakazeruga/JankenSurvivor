@@ -21,6 +21,7 @@ export const GameState = Object.freeze({
   TITLE:            'TITLE',
   DIFFICULTY_SELECT:'DIFFICULTY_SELECT',
   PLAYING:          'PLAYING',
+  PAUSED:           'PAUSED',
   WAVE_RESULT:      'WAVE_RESULT',
   GAME_OVER:        'GAME_OVER',
   GAME_CLEAR:       'GAME_CLEAR',
@@ -130,6 +131,11 @@ export class GameManager {
     }
   }
 
+  togglePause() {
+    if (this.state === GameState.PLAYING) this.state = GameState.PAUSED;
+    else if (this.state === GameState.PAUSED) this.state = GameState.PLAYING;
+  }
+
   activateBomb() {
     if (this.state !== GameState.PLAYING) return;
     if (this.score < 100) return;
@@ -143,6 +149,11 @@ export class GameManager {
 
     for (const e of this.enemies) {
       if (!e.alive || e.exploding || e.isBoss) continue;
+      if (e.isMidBoss) {
+        // Each bomb deals half of current HP (rounds down, min 1)
+        this._applyDamage(e, Math.max(1, Math.floor(e.hp / 2)), null);
+        continue;
+      }
       e.triggerExplosion();
       this._spawnExplosionParticles(e.x, e.y, ATTR_COLOR[e.attribute]);
     }
@@ -198,13 +209,8 @@ export class GameManager {
     this._reset();
   }
 
-  togglePause() {
-    if (this.state !== GameState.PLAYING) return;
-    this.paused = !this.paused;
-  }
-
   update(dt) {
-    if (this.state === GameState.PLAYING && !this.paused) {
+    if (this.state === GameState.PLAYING) {
       this._updatePlaying(dt);
     }
   }
@@ -263,7 +269,6 @@ export class GameManager {
     this.shieldInvincTimer = 0;
     this.shieldCTTimer     = 0;
     this.bombsUsed         = 0;
-    this.paused            = false;
     this.clearCycles       = 0;
     this.canContinue       = false;
   }
@@ -679,11 +684,37 @@ export class GameManager {
       }
 
       this.bossDeathFlash = 1.0;
+    } else if (enemy.isMidBoss) {
+      audio.playSfx(AUDIO.SFX_BOSS_KILL);
+
+      // Mid-boss death burst — orange/gold, no enemy clear
+      const midColors = ['#FF8C00', '#FFD700', '#FF4500', '#FFFFFF'];
+      for (const color of midColors) {
+        for (let i = 0; i < 12; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 150 + Math.random() * 320;
+          this.particles.push(new Particle({
+            x: enemy.x, y: enemy.y, color,
+            radius: 5 + Math.random() * 9,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 100,
+            life: 0.5 + Math.random() * 0.6,
+          }));
+        }
+      }
+
+      this.bossDeathRings = [
+        { x: enemy.x, y: enemy.y, maxRadius: 220, life: 0.9, maxLife: 0.9, color: '#FF8C00' },
+        { x: enemy.x, y: enemy.y, maxRadius: 160, life: 0.7, maxLife: 0.7, color: '#FFD700' },
+      ];
+      this.bossDeathFlash = 0.65;
     } else {
       audio.playSfx(AUDIO.SFX_DESTROY);
     }
 
-    const chained = enemy.isBoss ? [] : chainExplosion(enemy, this.enemies, CHAIN_RADIUS, CHAIN_MAX_DEPTH);
+    // Mid-boss neither triggers chain nor can be chain-targeted
+    const chainTargets = this.enemies.filter(e => !e.isMidBoss);
+    const chained = (enemy.isBoss || enemy.isMidBoss) ? [] : chainExplosion(enemy, chainTargets, CHAIN_RADIUS, CHAIN_MAX_DEPTH);
     for (const c of chained) {
       c.triggerExplosion();
       this._spawnExplosionParticles(c.x, c.y, ATTR_COLOR[c.attribute]);
@@ -691,7 +722,8 @@ export class GameManager {
 
     const multiplier = 1 + 0.5 * chained.length;
     let pts = Math.round(100 * multiplier * this.effectiveScoreMult);
-    if (enemy.isBoss) pts = Math.round(pts * (enemy.isGrandBoss ? 5 : 2));
+    if (enemy.isBoss)    pts = Math.round(pts * (enemy.isGrandBoss ? 5 : 2));
+    else if (enemy.isMidBoss) pts = Math.round(pts * 3);
     this.score += pts;
   }
 
@@ -699,6 +731,7 @@ export class GameManager {
     const stageMult = this.stageIndex / 3 + 1;
     const diffMult  = DIFFICULTY_CONFIG[this.difficulty].damageMult;
     const typeMult  = enemy.isBoss ? 3
+      : enemy.isMidBoss ? 15
       : enemy.enemyType === ENEMY_TYPE.LARGE  ? 5
       : enemy.enemyType === ENEMY_TYPE.MEDIUM ? 3
       : 1;

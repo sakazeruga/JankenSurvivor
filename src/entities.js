@@ -1,7 +1,7 @@
-import { ENEMY_RADIUS, BOSS_RADIUS, GRAND_BOSS_RADIUS, BULLET_RADIUS, CANVAS_W, ENEMY_TYPE_CONFIG } from './constants.js';
+import { ENEMY_RADIUS, BOSS_RADIUS, GRAND_BOSS_RADIUS, MID_BOSS_RADIUS, BULLET_RADIUS, CANVAS_W, ENEMY_TYPE_CONFIG } from './constants.js';
 
 export class Enemy {
-  constructor({ x, y, attribute, speed, hp = 1, isBoss = false, isGrandBoss = false, enemyType = 'NORMAL', drawImmune = false }) {
+  constructor({ x, y, attribute, speed, hp = 1, isBoss = false, isGrandBoss = false, isMidBoss = false, enemyType = 'NORMAL', drawImmune = false }) {
     this.x          = x;
     this.y          = y;
     this.attribute  = attribute;
@@ -10,6 +10,7 @@ export class Enemy {
     this.maxHp      = hp;
     this.isBoss     = isBoss;
     this.isGrandBoss = isGrandBoss;
+    this.isMidBoss  = isMidBoss;
     this.enemyType  = enemyType;
     this.drawImmune = drawImmune;
 
@@ -25,6 +26,8 @@ export class Enemy {
       } else {
         this.summonTimer = 0;
       }
+    } else if (isMidBoss) {
+      this.radius = MID_BOSS_RADIUS;
     } else {
       const cfg   = ENEMY_TYPE_CONFIG[enemyType] || ENEMY_TYPE_CONFIG.NORMAL;
       this.radius = Math.round(ENEMY_RADIUS * cfg.radiusScale);

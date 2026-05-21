@@ -11,10 +11,9 @@ const renderer = new Renderer(canvas);
 setupInput(canvas, gm, renderer);
 window._gm = gm; window._renderer = renderer;  // debug
 
-let lastTime       = performance.now();
-let prevState      = null;
-let prevBossKey    = '';  // 'none' | 'boss' | 'grand'
-let prevPaused     = false;
+let lastTime    = performance.now();
+let prevState   = null;
+let prevBossKey = '';  // 'none' | 'boss' | 'grand'
 
 function loop(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.05);
@@ -22,37 +21,31 @@ function loop(now) {
 
   gm.update(dt);
 
-  // Pause BGM when game is paused
-  if (gm.paused !== prevPaused) {
-    if (gm.paused) audio.pauseBgm();
-    else           audio.resumeBgm();
-    prevPaused = gm.paused;
-  }
-
-  // BGM management (skip while paused to avoid state drift)
-  const hasGrandBoss = !gm.paused && gm.state === GameState.PLAYING &&
+  // BGM management — skip while paused to preserve BGM continuity
+  const hasGrandBoss = gm.state === GameState.PLAYING &&
     gm.enemies.some(e => e.isGrandBoss && e.alive && !e.exploding);
-  const hasNormalBoss = !gm.paused && !hasGrandBoss && gm.state === GameState.PLAYING &&
+  const hasNormalBoss = !hasGrandBoss && gm.state === GameState.PLAYING &&
     gm.enemies.some(e => e.isBoss && e.alive && !e.exploding);
   const bossKey = hasGrandBoss ? 'grand' : hasNormalBoss ? 'boss' : 'none';
 
-  if (!gm.paused && (gm.state !== prevState || bossKey !== prevBossKey)) {
-    if (gm.state === GameState.TITLE || gm.state === GameState.DIFFICULTY_SELECT) {
-      audio.playBgm(AUDIO.BGM_TITLE);
-    } else if (gm.state === GameState.WAVE_RESULT) {
-      // After every boss battle the skill-select screen uses title BGM
-      audio.playBgm(AUDIO.BGM_TITLE);
-    } else if (gm.state === GameState.PLAYING) {
-      if (hasGrandBoss)   audio.playBgm(AUDIO.BGM_GRAND_BOSS);
-      else if (hasNormalBoss) audio.playBgm(AUDIO.BGM_BOSS);
-      else                audio.playBgm(AUDIO.BGM_STAGE);
-    } else if (gm.state === GameState.GAME_OVER) {
-      audio.playBgm(AUDIO.BGM_GAME_OVER);
-    } else if (gm.state === GameState.GAME_CLEAR) {
-      audio.playBgm(AUDIO.BGM_GAME_CLEAR);
+  if (gm.state !== GameState.PAUSED) {
+    if (gm.state !== prevState || bossKey !== prevBossKey) {
+      if (gm.state === GameState.TITLE || gm.state === GameState.DIFFICULTY_SELECT) {
+        audio.playBgm(AUDIO.BGM_TITLE);
+      } else if (gm.state === GameState.WAVE_RESULT) {
+        audio.playBgm(AUDIO.BGM_TITLE);
+      } else if (gm.state === GameState.PLAYING) {
+        if (hasGrandBoss)       audio.playBgm(AUDIO.BGM_GRAND_BOSS);
+        else if (hasNormalBoss) audio.playBgm(AUDIO.BGM_BOSS);
+        else                    audio.playBgm(AUDIO.BGM_STAGE);
+      } else if (gm.state === GameState.GAME_OVER) {
+        audio.playBgm(AUDIO.BGM_GAME_OVER);
+      } else if (gm.state === GameState.GAME_CLEAR) {
+        audio.playBgm(AUDIO.BGM_GAME_CLEAR);
+      }
+      prevState   = gm.state;
+      prevBossKey = bossKey;
     }
-    prevState   = gm.state;
-    prevBossKey = bossKey;
   }
 
   renderer.render(gm);

@@ -75,8 +75,12 @@ export function setupInput(canvas, gm, renderer) {
       return;
     }
 
+    if (gm.state === GameState.PAUSED) {
+      gm.togglePause();
+      return;
+    }
+
     if (gm.state === GameState.PLAYING) {
-      if (gm.paused) { gm.togglePause(); return; }
       if (renderer.isPauseBtn(x, y)) { gm.togglePause(); return; }
       if (renderer.isBombBtn(x, y))  { gm.activateBomb(); return; }
       const idx = renderer.getButtonIndex(x, y);
