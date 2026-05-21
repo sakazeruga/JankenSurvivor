@@ -168,6 +168,37 @@ export class Renderer {
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     }
 
+    // ── MID BOSS overlay — orange ─────────────────────────────────────────
+    if ((gm.midBossTimer || 0) > 0) {
+      const t     = Date.now() / 80;
+      const pulse = 0.4 + 0.6 * Math.abs(Math.sin(t));
+      const alpha = Math.min(1, gm.midBossTimer) * pulse;
+
+      ctx.save();
+      ctx.fillStyle = `rgba(220,120,0,${alpha * 0.14})`;
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      ctx.strokeStyle = `rgba(255,150,0,${alpha * 0.85})`;
+      ctx.lineWidth   = 6;
+      ctx.strokeRect(3, 3, CANVAS_W - 6, CANVAS_H - 6);
+
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor  = '#FF8C00';
+      ctx.shadowBlur   = 18;
+
+      ctx.fillStyle = `rgba(255,160,0,${alpha})`;
+      ctx.font      = 'bold 52px sans-serif';
+      ctx.fillText('★ CAUTION', CANVAS_W / 2, CANVAS_H / 2 - 30);
+
+      ctx.fillStyle = `rgba(255,220,160,${alpha * 0.85})`;
+      ctx.font      = 'bold 18px sans-serif';
+      ctx.fillText('MID BOSS APPROACHING', CANVAS_W / 2, CANVAS_H / 2 + 16);
+
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
     // ── CAUTION overlay (normal boss) — yellow, short ─────────────────────
     if ((gm.cautionTimer || 0) > 0) {
       const t     = Date.now() / 80;
@@ -294,7 +325,7 @@ export class Renderer {
 
   _drawEnemy(enemy) {
     const { ctx } = this;
-    const { x, y, radius, attribute, scale, alpha, exploding, hp, maxHp, isBoss, isGrandBoss, enemyType, drawImmune } = enemy;
+    const { x, y, radius, attribute, scale, alpha, exploding, hp, maxHp, isBoss, isGrandBoss, isMidBoss, enemyType, drawImmune } = enemy;
     const color = ATTR_COLOR[attribute];
 
     ctx.save();
@@ -315,7 +346,19 @@ export class Renderer {
       ctx.globalAlpha = alpha;
     }
 
-    if (!isBoss && enemyType === 'LARGE') {
+    if (isMidBoss) {
+      const t     = Date.now() / 500;
+      const pulse = 0.65 + 0.35 * Math.sin(t);
+      const auraR = radius * 2.6;
+      const grad2 = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, auraR);
+      grad2.addColorStop(0, '#FF8C0099'); grad2.addColorStop(1, 'transparent');
+      ctx.globalAlpha = alpha * pulse;
+      ctx.fillStyle = grad2;
+      ctx.beginPath(); ctx.arc(0, 0, auraR, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = alpha;
+    }
+
+    if (!isBoss && !isMidBoss && enemyType === 'LARGE') {
       ctx.strokeStyle = color;
       ctx.lineWidth   = 3;
       ctx.globalAlpha = alpha * 0.5;
@@ -374,6 +417,14 @@ export class Renderer {
           ctx.beginPath(); ctx.arc(0, 0, sr + 4, 0, Math.PI * 2); ctx.stroke();
         }
       }
+    } else if (isMidBoss) {
+      // Orange/gold double ring
+      ctx.strokeStyle = '#FF8C00';
+      ctx.lineWidth   = 3;
+      ctx.beginPath(); ctx.arc(0, 0, radius + 4, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth   = 2;
+      ctx.beginPath(); ctx.arc(0, 0, radius + 10, 0, Math.PI * 2); ctx.stroke();
     } else if (enemyType === 'MEDIUM') {
       ctx.strokeStyle = 'rgba(255,255,255,0.4)';
       ctx.lineWidth   = 2;
@@ -395,6 +446,12 @@ export class Renderer {
       ctx.fillText('👑'.repeat(crownCount), 0, -radius - 14);
     }
 
+    if (isMidBoss && !exploding) {
+      ctx.fillStyle = '#FFD700';
+      ctx.font      = `${radius * 0.6}px sans-serif`;
+      ctx.fillText('★', 0, -radius - 14);
+    }
+
     if (drawImmune && !exploding) {
       ctx.fillStyle = '#AAA'; ctx.font = `${radius * 0.45}px sans-serif`;
       ctx.fillText('⊘', radius * 0.6, -radius * 0.6);
@@ -414,14 +471,14 @@ export class Renderer {
     }
 
     if (!exploding && maxHp > 1) {
-      const bw = radius * (isBoss ? 2.2 : 1.8);
-      const bh = isBoss ? 7 : 5;
+      const bw = radius * (isBoss ? 2.2 : isMidBoss ? 2.0 : 1.8);
+      const bh = (isBoss || isMidBoss) ? 7 : 5;
       const bx = -bw / 2;
       const by = radius + 8;
       ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, bh);
-      ctx.fillStyle = isBoss ? (isGrandBoss ? '#CC00FF' : '#FFD700') : color;
+      ctx.fillStyle = isBoss ? (isGrandBoss ? '#CC00FF' : '#FFD700') : isMidBoss ? '#FF8C00' : color;
       ctx.fillRect(bx, by, bw * (hp / maxHp), bh);
-      if (isBoss) {
+      if (isBoss || isMidBoss) {
         ctx.fillStyle = '#FFF'; ctx.font = '10px sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'top';
         ctx.fillText(`${hp} / ${maxHp}`, 0, by + bh + 2);
