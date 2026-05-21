@@ -168,37 +168,6 @@ export class Renderer {
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     }
 
-    // ── MID BOSS overlay — orange ─────────────────────────────────────────
-    if ((gm.midBossTimer || 0) > 0) {
-      const t     = Date.now() / 80;
-      const pulse = 0.4 + 0.6 * Math.abs(Math.sin(t));
-      const alpha = Math.min(1, gm.midBossTimer) * pulse;
-
-      ctx.save();
-      ctx.fillStyle = `rgba(220,120,0,${alpha * 0.14})`;
-      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-      ctx.strokeStyle = `rgba(255,150,0,${alpha * 0.85})`;
-      ctx.lineWidth   = 6;
-      ctx.strokeRect(3, 3, CANVAS_W - 6, CANVAS_H - 6);
-
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowColor  = '#FF8C00';
-      ctx.shadowBlur   = 18;
-
-      ctx.fillStyle = `rgba(255,160,0,${alpha})`;
-      ctx.font      = 'bold 52px sans-serif';
-      ctx.fillText('★ CAUTION', CANVAS_W / 2, CANVAS_H / 2 - 30);
-
-      ctx.fillStyle = `rgba(255,220,160,${alpha * 0.85})`;
-      ctx.font      = 'bold 18px sans-serif';
-      ctx.fillText('MID BOSS APPROACHING', CANVAS_W / 2, CANVAS_H / 2 + 16);
-
-      ctx.shadowBlur = 0;
-      ctx.restore();
-    }
-
     // ── CAUTION overlay (normal boss) — yellow, short ─────────────────────
     if ((gm.cautionTimer || 0) > 0) {
       const t     = Date.now() / 80;

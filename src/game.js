@@ -249,7 +249,6 @@ export class GameManager {
     this.shieldInvincTimer = 0;
     this.shieldCTTimer     = 0;
     this.bombsUsed         = 0;
-    this.midBossTimer      = 0;
   }
 
   _loadStage(index) {
@@ -343,7 +342,6 @@ export class GameManager {
     if (this.bossDeathFlash > 0) this.bossDeathFlash -= dt * 1.8;
     if (this.bossWarning    > 0) this.bossWarning    -= dt;
     if (this.cautionTimer   > 0) this.cautionTimer   -= dt;
-    if (this.midBossTimer   > 0) this.midBossTimer   -= dt;
     if (this.shieldCTTimer  > 0) this.shieldCTTimer  -= dt;
     if (this.shieldInvincTimer > 0) {
       this.shieldInvincTimer -= dt;
@@ -371,9 +369,6 @@ export class GameManager {
           this.cautionTimer = 1.8;
           audio.playSfx(AUDIO.SFX_CAUTION);
         }
-      } else if (def.isMidBoss) {
-        this.midBossTimer = 1.8;
-        audio.playSfx(AUDIO.SFX_CAUTION);
       }
     }
 
