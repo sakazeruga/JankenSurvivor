@@ -1,30 +1,53 @@
-import { ENEMY_RADIUS, BOSS_RADIUS, GRAND_BOSS_RADIUS, MID_BOSS_RADIUS, BULLET_RADIUS, CANVAS_W, ENEMY_TYPE_CONFIG } from './constants.js';
+import { ENEMY_RADIUS, BOSS_RADIUS, GRAND_BOSS_RADIUS, MID_BOSS_RADIUS, ULTRA_BOSS_RADIUS, BULLET_RADIUS, CANVAS_W, ENEMY_TYPE_CONFIG } from './constants.js';
 
 export class Enemy {
-  constructor({ x, y, attribute, speed, hp = 1, isBoss = false, isGrandBoss = false, isMidBoss = false, enemyType = 'NORMAL', drawImmune = false }) {
-    this.x          = x;
-    this.y          = y;
-    this.attribute  = attribute;
-    this.speed      = speed;
-    this.hp         = hp;
-    this.maxHp      = hp;
-    this.isBoss     = isBoss;
+  constructor({ x, y, attribute, speed, hp = 1, isBoss = false, isGrandBoss = false, isMidBoss = false, isUltraBoss = false, isRushBoss = false, enemyType = 'NORMAL', drawImmune = false }) {
+    this.x           = x;
+    this.y           = y;
+    this.attribute   = attribute;
+    this.speed       = speed;
+    this.hp          = hp;
+    this.maxHp       = hp;
+    this.isBoss      = isBoss;
     this.isGrandBoss = isGrandBoss;
-    this.isMidBoss  = isMidBoss;
-    this.enemyType  = enemyType;
-    this.drawImmune = drawImmune;
+    this.isMidBoss   = isMidBoss;
+    this.isUltraBoss = isUltraBoss;
+    this.isRushBoss  = isRushBoss;
+    this.enemyType   = enemyType;
+    this.drawImmune  = drawImmune;
+    this.noShield    = false;  // when true, shield phase never cycles
 
     if (isBoss) {
-      this.radius           = isGrandBoss ? GRAND_BOSS_RADIUS : BOSS_RADIUS;
-      this.attrCycleTimer   = 0;
-      // Shield phases: 0=none, 1=damage shield, 2=draw-immune (grand boss only)
-      this.bossShieldPhase  = 1;    // start shielded
-      this.bossShieldTimer  = null; // null = needs initialization in game.js
-      if (isGrandBoss) {
-        this.skillTimer = 0;
-        this.skillPhase = 0;  // 0=A 1=B 2=C
+      if (isUltraBoss) {
+        // ── Ultra boss ────────────────────────────────────────────────────
+        this.radius          = ULTRA_BOSS_RADIUS;
+        this.attrCycleTimer  = 0;
+        this.bossShieldPhase = 0;    // no normal shield
+        this.bossShieldTimer = null;
+        // Ultra-specific state
+        this.ultraInitDone       = false;
+        this.ultraMinionTimer    = 0;
+        this.ultraPhaseTimer     = 10.0;  // first phase skill at 10 s
+        this.ultraRushTimer      = 14.0;  // first rush attack at 14 s
+        this.ultraAbsorbActive   = false;
+        this.ultraAbsorbTimer    = 0;
+        this.ultraAbsorbCooldown = 10.0;  // first absorb fires 10 s after HP <= 50%
+        this.ultraCharging       = false;
+        this.ultraChargeTimer    = 0;
+        this.ultraChargeDamage   = 0;
       } else {
-        this.summonTimer = 0;
+        // ── Grand boss / Normal boss ──────────────────────────────────────
+        this.radius           = isGrandBoss ? GRAND_BOSS_RADIUS : BOSS_RADIUS;
+        this.attrCycleTimer   = 0;
+        // Shield phases: 0=none, 1=damage shield, 2=draw-immune (grand boss only)
+        this.bossShieldPhase  = 1;    // start shielded
+        this.bossShieldTimer  = null; // null = needs initialization in game.js
+        if (isGrandBoss) {
+          this.skillTimer = 0;
+          this.skillPhase = 0;  // 0=A 1=B 2=C
+        } else {
+          this.summonTimer = 0;
+        }
       }
     } else if (isMidBoss) {
       this.radius = MID_BOSS_RADIUS;

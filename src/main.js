@@ -22,11 +22,13 @@ function loop(now) {
   gm.update(dt);
 
   // BGM management — skip while paused to preserve BGM continuity
-  const hasGrandBoss = gm.state === GameState.PLAYING &&
+  const hasUltraBoss = gm.state === GameState.PLAYING &&
+    gm.enemies.some(e => e.isUltraBoss && e.alive && !e.exploding);
+  const hasGrandBoss = !hasUltraBoss && gm.state === GameState.PLAYING &&
     gm.enemies.some(e => e.isGrandBoss && e.alive && !e.exploding);
-  const hasNormalBoss = !hasGrandBoss && gm.state === GameState.PLAYING &&
+  const hasNormalBoss = !hasUltraBoss && !hasGrandBoss && gm.state === GameState.PLAYING &&
     gm.enemies.some(e => e.isBoss && e.alive && !e.exploding);
-  const bossKey = hasGrandBoss ? 'grand' : hasNormalBoss ? 'boss' : 'none';
+  const bossKey = hasUltraBoss ? 'ultra' : hasGrandBoss ? 'grand' : hasNormalBoss ? 'boss' : 'none';
 
   if (gm.state !== GameState.PAUSED) {
     if (gm.state !== prevState || bossKey !== prevBossKey) {
@@ -35,7 +37,8 @@ function loop(now) {
       } else if (gm.state === GameState.WAVE_RESULT) {
         audio.playBgm(AUDIO.BGM_TITLE);
       } else if (gm.state === GameState.PLAYING) {
-        if (hasGrandBoss)       audio.playBgm(AUDIO.BGM_GRAND_BOSS);
+        if (hasUltraBoss)       audio.playBgm(AUDIO.BGM_GRAND_BOSS);  // ultra boss reuses grand boss BGM
+        else if (hasGrandBoss)  audio.playBgm(AUDIO.BGM_GRAND_BOSS);
         else if (hasNormalBoss) audio.playBgm(AUDIO.BGM_BOSS);
         else                    audio.playBgm(AUDIO.BGM_STAGE);
       } else if (gm.state === GameState.GAME_OVER) {

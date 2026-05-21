@@ -205,32 +205,40 @@ export class Renderer {
       ctx.restore();
     }
 
-    // ── WARNING overlay (grand boss) — red, longer ────────────────────────
+    // ── WARNING overlay (grand boss / ultra boss) — red, longer ─────────
     if ((gm.bossWarning || 0) > 0) {
-      const t     = Date.now() / 120;
+      const isUltra = (gm.enemies || []).some(e => e.isUltraBoss && e.alive && !e.exploding);
+      const t     = Date.now() / (isUltra ? 80 : 120);
       const pulse = 0.55 + 0.45 * Math.abs(Math.sin(t));
       const alpha = Math.min(1, gm.bossWarning) * pulse;
 
       ctx.save();
-      ctx.fillStyle = `rgba(200,0,0,${alpha * 0.22})`;
+      ctx.fillStyle = isUltra
+        ? `rgba(180,0,0,${alpha * 0.32})`
+        : `rgba(200,0,0,${alpha * 0.22})`;
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-      ctx.strokeStyle = `rgba(255,40,40,${alpha * 0.9})`;
-      ctx.lineWidth   = 8;
+      ctx.strokeStyle = isUltra
+        ? `rgba(255,0,0,${alpha})`
+        : `rgba(255,40,40,${alpha * 0.9})`;
+      ctx.lineWidth   = isUltra ? 12 : 8;
       ctx.strokeRect(4, 4, CANVAS_W - 8, CANVAS_H - 8);
 
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
       ctx.shadowColor  = '#FF0000';
-      ctx.shadowBlur   = 24;
+      ctx.shadowBlur   = isUltra ? 36 : 24;
 
-      ctx.fillStyle = `rgba(255,60,60,${alpha})`;
-      ctx.font      = 'bold 58px sans-serif';
-      ctx.fillText('⚠ WARNING', CANVAS_W / 2, CANVAS_H / 2 - 40);
+      ctx.fillStyle = `rgba(255,${isUltra ? 20 : 60},${isUltra ? 20 : 60},${alpha})`;
+      ctx.font      = `bold ${isUltra ? 52 : 58}px sans-serif`;
+      ctx.fillText(isUltra ? '⚠⚠ WARNING ⚠⚠' : '⚠ WARNING', CANVAS_W / 2, CANVAS_H / 2 - 40);
 
-      ctx.fillStyle = `rgba(255,200,200,${alpha * 0.9})`;
-      ctx.font      = 'bold 20px sans-serif';
-      ctx.fillText('GRAND BOSS APPROACHING', CANVAS_W / 2, CANVAS_H / 2 + 14);
+      ctx.fillStyle = `rgba(255,${isUltra ? 160 : 200},${isUltra ? 160 : 200},${alpha * 0.9})`;
+      ctx.font      = `bold ${isUltra ? 17 : 20}px sans-serif`;
+      ctx.fillText(
+        isUltra ? '💀 ULTRA BOSS APPROACHING 💀' : 'GRAND BOSS APPROACHING',
+        CANVAS_W / 2, CANVAS_H / 2 + 14
+      );
 
       ctx.shadowBlur = 0;
       ctx.restore();
@@ -300,7 +308,9 @@ export class Renderer {
 
   _drawEnemy(enemy) {
     const { ctx } = this;
-    const { x, y, radius, attribute, scale, alpha, exploding, hp, maxHp, isBoss, isGrandBoss, isMidBoss, enemyType, drawImmune } = enemy;
+    const { x, y, radius, attribute, scale, alpha, exploding, hp, maxHp,
+            isBoss, isGrandBoss, isUltraBoss, isMidBoss, isRushBoss,
+            enemyType, drawImmune } = enemy;
     const color = ATTR_COLOR[attribute];
 
     ctx.save();
@@ -308,12 +318,22 @@ export class Renderer {
     ctx.translate(x, y);
     ctx.scale(scale, scale);
 
+    // ── Aura ──────────────────────────────────────────────────────────────
     if (isBoss) {
-      const t     = Date.now() / (isGrandBoss ? 400 : 600);
+      const speed = isUltraBoss ? 250 : isGrandBoss ? 400 : 600;
+      const t     = Date.now() / speed;
       const pulse = 0.7 + 0.3 * Math.sin(t);
-      const auraR = radius * (isGrandBoss ? 3.2 : 2.8);
+      const auraR = radius * (isUltraBoss ? 3.8 : isGrandBoss ? 3.2 : 2.8);
       const grad2 = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, auraR);
-      const auraColor = isGrandBoss ? '#CC00FF' : color;
+
+      let auraColor;
+      if (isUltraBoss) {
+        auraColor = enemy.ultraCharging   ? '#FF8800'
+                  : enemy.ultraAbsorbActive ? '#00CC55'
+                  : '#AA0000';
+      } else {
+        auraColor = isGrandBoss ? '#CC00FF' : color;
+      }
       grad2.addColorStop(0, auraColor + '99'); grad2.addColorStop(1, 'transparent');
       ctx.globalAlpha = alpha * pulse;
       ctx.fillStyle = grad2;
@@ -322,11 +342,12 @@ export class Renderer {
     }
 
     if (isMidBoss) {
-      const t     = Date.now() / 500;
+      const auraColor = isRushBoss ? '#FF0000' : '#FF8C00';
+      const t     = Date.now() / (isRushBoss ? 250 : 500);
       const pulse = 0.65 + 0.35 * Math.sin(t);
-      const auraR = radius * 2.6;
+      const auraR = radius * (isRushBoss ? 3.0 : 2.6);
       const grad2 = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, auraR);
-      grad2.addColorStop(0, '#FF8C0099'); grad2.addColorStop(1, 'transparent');
+      grad2.addColorStop(0, auraColor + '99'); grad2.addColorStop(1, 'transparent');
       ctx.globalAlpha = alpha * pulse;
       ctx.fillStyle = grad2;
       ctx.beginPath(); ctx.arc(0, 0, auraR, 0, Math.PI * 2); ctx.fill();
@@ -349,6 +370,7 @@ export class Renderer {
       ctx.setLineDash([]);
     }
 
+    // ── Body ──────────────────────────────────────────────────────────────
     const grad = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.8);
     grad.addColorStop(0, color + '55'); grad.addColorStop(1, 'transparent');
     ctx.fillStyle = grad;
@@ -357,7 +379,42 @@ export class Renderer {
     ctx.fillStyle = color;
     ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill();
 
-    if (isBoss) {
+    // ── Rings & shields ───────────────────────────────────────────────────
+    if (isBoss && isUltraBoss) {
+      // Ultra boss: triple crimson ring
+      const ringColors = ['#FF0000', '#CC0000', '#880000'];
+      for (let r = 0; r < 3; r++) {
+        ctx.strokeStyle = ringColors[r];
+        ctx.lineWidth   = 5 - r;
+        ctx.beginPath(); ctx.arc(0, 0, radius + 5 + r * 10, 0, Math.PI * 2); ctx.stroke();
+      }
+
+      if (!exploding) {
+        const t     = Date.now() / 130;
+        const pulse = 0.55 + 0.45 * Math.abs(Math.sin(t));
+        const sr    = radius + 36;
+
+        if (enemy.ultraCharging) {
+          // Charge: orange pulsing ring, faster
+          const ct = Date.now() / 80;
+          const cp = 0.6 + 0.4 * Math.abs(Math.sin(ct));
+          ctx.strokeStyle = `rgba(255,160,0,${cp})`;
+          ctx.lineWidth   = 9;
+          ctx.beginPath(); ctx.arc(0, 0, sr, 0, Math.PI * 2); ctx.stroke();
+          ctx.strokeStyle = `rgba(255,220,80,${cp * 0.5})`;
+          ctx.lineWidth   = 18;
+          ctx.beginPath(); ctx.arc(0, 0, sr + 6, 0, Math.PI * 2); ctx.stroke();
+        } else if (enemy.ultraAbsorbActive) {
+          // Absorption barrier: green pulsing ring
+          ctx.strokeStyle = `rgba(0,220,80,${pulse})`;
+          ctx.lineWidth   = 8;
+          ctx.beginPath(); ctx.arc(0, 0, sr, 0, Math.PI * 2); ctx.stroke();
+          ctx.strokeStyle = `rgba(100,255,150,${pulse * 0.45})`;
+          ctx.lineWidth   = 18;
+          ctx.beginPath(); ctx.arc(0, 0, sr + 6, 0, Math.PI * 2); ctx.stroke();
+        }
+      }
+    } else if (isBoss) {
       const ringColor = isGrandBoss ? '#CC00FF' : '#FFD700';
       const rings     = isGrandBoss ? 2 : 1;
       for (let r = 0; r < rings; r++) {
@@ -366,14 +423,13 @@ export class Renderer {
         ctx.beginPath(); ctx.arc(0, 0, radius + 4 + r * 8, 0, Math.PI * 2); ctx.stroke();
       }
 
-      // Shield visual
+      // Normal/Grand boss shield visual
       const sp = enemy.bossShieldPhase;
       if (!exploding && (sp === 1 || sp === 2)) {
         const t     = Date.now() / 160;
         const pulse = 0.55 + 0.45 * Math.abs(Math.sin(t));
         const sr    = radius + (isGrandBoss ? 26 : 20);
         if (sp === 1) {
-          // Damage shield — cyan/blue
           ctx.strokeStyle = `rgba(0,200,255,${pulse})`;
           ctx.lineWidth   = 6;
           ctx.beginPath(); ctx.arc(0, 0, sr, 0, Math.PI * 2); ctx.stroke();
@@ -381,7 +437,6 @@ export class Renderer {
           ctx.lineWidth   = 14;
           ctx.beginPath(); ctx.arc(0, 0, sr + 4, 0, Math.PI * 2); ctx.stroke();
         } else {
-          // Draw-immune shield — white/silver (grand boss only)
           ctx.strokeStyle = `rgba(220,220,255,${pulse})`;
           ctx.lineWidth   = 6;
           ctx.setLineDash([8, 5]);
@@ -393,11 +448,12 @@ export class Renderer {
         }
       }
     } else if (isMidBoss) {
-      // Orange/gold double ring
-      ctx.strokeStyle = '#FF8C00';
+      const ringA = isRushBoss ? '#FF2200' : '#FF8C00';
+      const ringB = isRushBoss ? '#FF6600' : '#FFD700';
+      ctx.strokeStyle = ringA;
       ctx.lineWidth   = 3;
       ctx.beginPath(); ctx.arc(0, 0, radius + 4, 0, Math.PI * 2); ctx.stroke();
-      ctx.strokeStyle = '#FFD700';
+      ctx.strokeStyle = ringB;
       ctx.lineWidth   = 2;
       ctx.beginPath(); ctx.arc(0, 0, radius + 10, 0, Math.PI * 2); ctx.stroke();
     } else if (enemyType === 'MEDIUM') {
@@ -406,25 +462,28 @@ export class Renderer {
       ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.stroke();
     }
 
+    // ── Specular highlight ────────────────────────────────────────────────
     ctx.fillStyle = 'rgba(255,255,255,0.18)';
     ctx.beginPath(); ctx.arc(-radius * 0.2, -radius * 0.25, radius * 0.55, 0, Math.PI * 2); ctx.fill();
 
+    // ── Attribute symbol ──────────────────────────────────────────────────
     ctx.fillStyle    = '#FFF';
     ctx.font         = `bold ${radius}px sans-serif`;
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(ATTR_SYMBOL[attribute], 0, 2);
 
+    // ── Crown / badge ─────────────────────────────────────────────────────
     if (isBoss && !exploding) {
-      const crownCount = isGrandBoss ? 2 : 1;
-      ctx.font = `${radius * 0.65}px sans-serif`;
-      ctx.fillText('👑'.repeat(crownCount), 0, -radius - 14);
+      const crownCount = isUltraBoss ? 3 : isGrandBoss ? 2 : 1;
+      ctx.font = `${radius * (isUltraBoss ? 0.52 : 0.65)}px sans-serif`;
+      ctx.fillText('👑'.repeat(crownCount), 0, -radius - (isUltraBoss ? 18 : 14));
     }
 
     if (isMidBoss && !exploding) {
-      ctx.fillStyle = '#FFD700';
+      ctx.fillStyle = isRushBoss ? '#FF4400' : '#FFD700';
       ctx.font      = `${radius * 0.6}px sans-serif`;
-      ctx.fillText('★', 0, -radius - 14);
+      ctx.fillText(isRushBoss ? '⚡' : '★', 0, -radius - 14);
     }
 
     if (drawImmune && !exploding) {
@@ -432,26 +491,46 @@ export class Renderer {
       ctx.fillText('⊘', radius * 0.6, -radius * 0.6);
     }
 
+    // ── Status text ───────────────────────────────────────────────────────
     if (isBoss && !exploding) {
-      const sp = enemy.bossShieldPhase;
-      if (sp === 1) {
-        ctx.fillStyle = '#00DDFF'; ctx.font = `bold 11px sans-serif`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('🛡 GUARD', 0, radius + (isGrandBoss ? 30 : 24));
-      } else if (sp === 2) {
-        ctx.fillStyle = '#CCCCFF'; ctx.font = `bold 11px sans-serif`;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('⊘ BARRIER', 0, radius + 30);
+      const statusY = radius + (isUltraBoss ? 40 : isGrandBoss ? 30 : 24);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (isUltraBoss) {
+        if (enemy.ultraCharging) {
+          ctx.fillStyle = '#FFB020'; ctx.font = 'bold 12px sans-serif';
+          ctx.fillText('⚡ CHARGE', 0, statusY);
+          if (enemy.ultraChargeDamage > 0) {
+            ctx.fillStyle = '#FFD700'; ctx.font = 'bold 10px sans-serif';
+            ctx.fillText(`蓄積 -${enemy.ultraChargeDamage}`, 0, statusY + 15);
+          }
+        } else if (enemy.ultraAbsorbActive) {
+          ctx.fillStyle = '#00EE66'; ctx.font = 'bold 12px sans-serif';
+          ctx.fillText('⊕ ABSORB', 0, statusY);
+        }
+      } else {
+        const sp = enemy.bossShieldPhase;
+        if (sp === 1) {
+          ctx.fillStyle = '#00DDFF'; ctx.font = 'bold 11px sans-serif';
+          ctx.fillText('🛡 GUARD', 0, statusY);
+        } else if (sp === 2) {
+          ctx.fillStyle = '#CCCCFF'; ctx.font = 'bold 11px sans-serif';
+          ctx.fillText('⊘ BARRIER', 0, statusY);
+        }
       }
     }
 
+    // ── HP bar ────────────────────────────────────────────────────────────
     if (!exploding && maxHp > 1) {
-      const bw = radius * (isBoss ? 2.2 : isMidBoss ? 2.0 : 1.8);
+      const bw = radius * (isBoss ? 2.4 : isMidBoss ? 2.0 : 1.8);
       const bh = (isBoss || isMidBoss) ? 7 : 5;
       const bx = -bw / 2;
-      const by = radius + 8;
+      const by = radius + (isBoss && isUltraBoss ? 24 : 8);
       ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, bh);
-      ctx.fillStyle = isBoss ? (isGrandBoss ? '#CC00FF' : '#FFD700') : isMidBoss ? '#FF8C00' : color;
+      const barColor = isUltraBoss ? '#CC0000'
+        : isBoss ? (isGrandBoss ? '#CC00FF' : '#FFD700')
+        : isMidBoss ? (isRushBoss ? '#FF3300' : '#FF8C00')
+        : color;
+      ctx.fillStyle = barColor;
       ctx.fillRect(bx, by, bw * (hp / maxHp), bh);
       if (isBoss || isMidBoss) {
         ctx.fillStyle = '#FFF'; ctx.font = '10px sans-serif';
@@ -560,13 +639,6 @@ export class Renderer {
     ctx.lineWidth   = 1;
     ctx.beginPath(); ctx.moveTo(0, 72); ctx.lineTo(CANVAS_W, 72); ctx.stroke();
 
-    // Pause button (top-right corner)
-    ctx.fillStyle    = 'rgba(255,255,255,0.40)';
-    ctx.font         = '18px sans-serif';
-    ctx.textAlign    = 'right';
-    ctx.textBaseline = 'top';
-    ctx.fillText(gm.state === GameState.PAUSED ? '▶' : '⏸', CANVAS_W - 8, 5);
-
     const stageMult  = gm.stageIndex / 3 + 1;
     const diffMult   = DIFFICULTY_CONFIG[gm.difficulty]?.damageMult ?? 1;
     const penalty    = Math.round(BASE_HIT_PENALTY * stageMult * diffMult);
@@ -599,7 +671,7 @@ export class Renderer {
     ctx.font         = '20px sans-serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(gm.paused ? '▶' : '⏸', pbx + pbw / 2, pby + pbh / 2);
+    ctx.fillText(gm.state === GameState.PAUSED ? '▶' : '⏸', pbx + pbw / 2, pby + pbh / 2);
 
     const diffCfg = DIFFICULTY_CONFIG[gm.difficulty] ?? DIFFICULTY_CONFIG[DIFFICULTY.EASY];
     ctx.fillStyle    = diffCfg.color;

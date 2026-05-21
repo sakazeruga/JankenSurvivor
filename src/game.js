@@ -17,6 +17,13 @@ const BOSS_ATTR_PERIOD        = 4.0;   // seconds between boss attribute changes
 const BOSS_SUMMON_PERIOD      = 1.17;  // seconds between normal-boss minion spawns
 const GRAND_BOSS_SKILL_PERIOD = 3.5;   // seconds between grand-boss skill uses
 
+// ── Ultra boss timers ──────────────────────────────────────────────────────
+const ULTRA_MINION_PERIOD     = BOSS_SUMMON_PERIOD / 3; // 3× faster than normal boss (≈0.39 s)
+const ULTRA_PHASE_SKILL_PERIOD= 10.0;  // mid-boss + draw-immune spawn interval (HP ≤ 90%)
+const ULTRA_RUSH_PERIOD       = 14.0;  // rush attack interval (HP ≤ 50%)
+const ULTRA_CHARGE_DURATION   = 2.5;   // charge wind-up before rush boss spawns
+const ULTRA_ABSORB_PERIOD     = 12.0;  // time between absorption-barrier activations
+
 export const GameState = Object.freeze({
   TITLE:            'TITLE',
   DIFFICULTY_SELECT:'DIFFICULTY_SELECT',
@@ -384,7 +391,10 @@ export class GameManager {
       this.spawnTimer = this.spawnInterval;
 
       if (def.isBoss) {
-        if (def.isGrandBoss) {
+        if (def.isUltraBoss) {
+          this.bossWarning = 3.5;
+          audio.playSfx(AUDIO.SFX_WARNING);
+        } else if (def.isGrandBoss) {
           this.bossWarning = 2.5;
           audio.playSfx(AUDIO.SFX_WARNING);
         } else {
@@ -401,7 +411,7 @@ export class GameManager {
 
     this._updateBosses(dt);
 
-    // Laser ↔ Enemy collision
+    // Laser ↔ Enemy collision (laser always bypasses absorption barrier)
     for (const laser of this.lasers) {
       if (!laser.alive) continue;
       for (const enemy of this.enemies) {
@@ -409,7 +419,7 @@ export class GameManager {
         if (laser.hitSet.has(enemy)) continue;
         if (this._laserHitsEnemy(laser, enemy)) {
           laser.hitSet.add(enemy);
-          this._applyDamage(enemy, laser.damage, null);
+          this._applyDamage(enemy, laser.damage, null, true);
         }
       }
     }
@@ -458,6 +468,13 @@ export class GameManager {
     for (const boss of this.enemies) {
       if (!boss.isBoss || !boss.alive || boss.exploding) continue;
 
+      // ── Ultra boss: separate update path ─────────────────────────────────
+      if (boss.isUltraBoss) {
+        this._updateUltraBoss(boss, dt, shieldPhaseDur);
+        continue;
+      }
+
+      // ── Grand boss / Normal boss ──────────────────────────────────────────
       boss.attrCycleTimer += dt;
       if (boss.attrCycleTimer >= BOSS_ATTR_PERIOD) {
         boss.attrCycleTimer = 0;
@@ -466,17 +483,19 @@ export class GameManager {
         this._spawnHitParticles(boss.x, boss.y, '#FFFFFF', 10);
       }
 
-      // Shield phase timer (both boss types)
-      if (boss.bossShieldTimer === null) boss.bossShieldTimer = shieldPhaseDur;
-      boss.bossShieldTimer -= dt;
-      if (boss.bossShieldTimer <= 0) {
-        boss.bossShieldTimer = shieldPhaseDur;
-        if (boss.isGrandBoss) {
-          // Grand boss: 0=none → 1=damage shield → 2=draw-immune → 0 …
-          boss.bossShieldPhase = (boss.bossShieldPhase + 1) % 3;
-        } else {
-          // Normal boss: toggle 0↔1
-          boss.bossShieldPhase = boss.bossShieldPhase === 0 ? 1 : 0;
+      // Shield phase timer — skip for noShield bosses (ultra-init spawns)
+      if (!boss.noShield) {
+        if (boss.bossShieldTimer === null) boss.bossShieldTimer = shieldPhaseDur;
+        boss.bossShieldTimer -= dt;
+        if (boss.bossShieldTimer <= 0) {
+          boss.bossShieldTimer = shieldPhaseDur;
+          if (boss.isGrandBoss) {
+            // Grand boss: 0=none → 1=damage shield → 2=draw-immune → 0 …
+            boss.bossShieldPhase = (boss.bossShieldPhase + 1) % 3;
+          } else {
+            // Normal boss: toggle 0↔1
+            boss.bossShieldPhase = boss.bossShieldPhase === 0 ? 1 : 0;
+          }
         }
       }
 
@@ -497,6 +516,165 @@ export class GameManager {
         }
       }
     }
+  }
+
+  // ── Ultra boss update ────────────────────────────────────────────────────
+
+  _updateUltraBoss(boss, dt, shieldPhaseDur) {
+    const hpRatio   = boss.hp / boss.maxHp;
+    const absorbDur = shieldPhaseDur / 2; // half of normal barrier duration
+
+    // Attribute cycle (crimson flash)
+    boss.attrCycleTimer += dt;
+    if (boss.attrCycleTimer >= BOSS_ATTR_PERIOD) {
+      boss.attrCycleTimer = 0;
+      const others = ALL_ATTRS.filter(a => a !== boss.attribute);
+      boss.attribute = others[Math.floor(Math.random() * others.length)];
+      this._spawnHitParticles(boss.x, boss.y, '#FF4444', 12);
+    }
+
+    // ── Initial one-time skill ─────────────────────────────────────────────
+    if (!boss.ultraInitDone) {
+      boss.ultraInitDone = true;
+      this._spawnUltraInitBosses(boss);
+    }
+
+    // ── Continuous minion spawning (always active) ─────────────────────────
+    boss.ultraMinionTimer -= dt;
+    if (boss.ultraMinionTimer <= 0) {
+      boss.ultraMinionTimer = ULTRA_MINION_PERIOD;
+      this._spawnBossMinion(boss);
+    }
+
+    // ── Phase skills: mid-boss + draw-immune wave (HP ≤ 90%) ─────────────
+    if (hpRatio <= 0.90 && !boss.ultraCharging) {
+      boss.ultraPhaseTimer -= dt;
+      if (boss.ultraPhaseTimer <= 0) {
+        boss.ultraPhaseTimer = ULTRA_PHASE_SKILL_PERIOD;
+        this._executeUltraPhaseSkill(boss, hpRatio);
+      }
+    }
+
+    // ── Rush attack (HP ≤ 50%) ────────────────────────────────────────────
+    if (hpRatio <= 0.50) {
+      if (!boss.ultraCharging) {
+        boss.ultraRushTimer -= dt;
+        if (boss.ultraRushTimer <= 0) {
+          boss.ultraRushTimer = ULTRA_RUSH_PERIOD;
+          this._startUltraRushCharge(boss);
+        }
+      } else {
+        // Counting down the charge
+        boss.ultraChargeTimer -= dt;
+        if (boss.ultraChargeTimer <= 0) {
+          boss.ultraCharging = false;
+          this._spawnUltraRushBoss(boss);
+          boss.ultraChargeDamage = 0;
+        }
+      }
+
+      // ── Absorption barrier (separate cooldown, HP ≤ 50%) ─────────────────
+      if (!boss.ultraAbsorbActive) {
+        boss.ultraAbsorbCooldown -= dt;
+        if (boss.ultraAbsorbCooldown <= 0) {
+          boss.ultraAbsorbActive   = true;
+          boss.ultraAbsorbTimer    = absorbDur;
+          boss.ultraAbsorbCooldown = ULTRA_ABSORB_PERIOD;
+        }
+      } else {
+        boss.ultraAbsorbTimer -= dt;
+        if (boss.ultraAbsorbTimer <= 0) {
+          boss.ultraAbsorbActive = false;
+        }
+      }
+    }
+  }
+
+  // ── Ultra boss skill helpers ─────────────────────────────────────────────
+
+  _spawnUltraInitBosses(boss) {
+    // Two normal bosses without shield, flanking the ultra boss position
+    const normalBossHp = Math.round(20 * Math.pow(2, this.stageIndex));
+    const positions = [CANVAS_W * 0.22, CANVAS_W * 0.78];
+    for (const bx of positions) {
+      const e = new Enemy({
+        x: bx, y: 92,
+        attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+        speed: 0,
+        hp: normalBossHp,
+        isBoss: true,
+        isGrandBoss: false,
+      });
+      e.bossShieldPhase = 0;   // no damage shield
+      e.noShield        = true; // prevent cycling
+      e.summonTimer     = 0;
+      this.enemies.push(e);
+    }
+    this.cautionTimer = 1.8;
+    audio.playSfx(AUDIO.SFX_CAUTION);
+  }
+
+  _executeUltraPhaseSkill(boss, hpRatio) {
+    const stageIdx  = this.stageIndex;
+    const stageMult = stageIdx / 3 + 1;
+    // Number of mid-bosses: 1 at 90%, +1 per 25% HP lost
+    const midBossCount    = 1 + Math.min(3, Math.floor((0.90 - Math.min(hpRatio, 0.90)) / 0.25));
+    const drawImmuneCount = 5 + 2 * (midBossCount - 1);
+
+    const normalMidBossHp = Math.round(10 * Math.pow(2, stageIdx));
+    const midBossSpeed    = Math.min(1.0 + 0.10 * stageIdx, 4.5) * 60 / 3; // ≈ stage speed / 3
+
+    const yMin = boss.y + 60;
+    const yMax = Math.min(CANVAS_H * 0.60, KILL_LINE_Y - 100);
+
+    // Mid-bosses
+    for (let i = 0; i < midBossCount; i++) {
+      const x = 36 + Math.random() * (CANVAS_W - 72);
+      const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
+      this.enemies.push(new Enemy({
+        x, y,
+        attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+        speed: midBossSpeed * this.speedMultiplier,
+        hp: normalMidBossHp,
+        isMidBoss: true,
+      }));
+    }
+
+    // Draw-immune medium enemies
+    for (let i = 0; i < drawImmuneCount; i++) {
+      const x = 36 + Math.random() * (CANVAS_W - 72);
+      const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
+      this.enemies.push(new Enemy({
+        x, y,
+        attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+        speed: 42 * this.speedMultiplier,
+        hp: Math.max(2, Math.round(stageMult * 2)),
+        enemyType: ENEMY_TYPE.MEDIUM,
+        drawImmune: true,
+      }));
+    }
+  }
+
+  _startUltraRushCharge(boss) {
+    boss.ultraCharging     = true;
+    boss.ultraChargeTimer  = ULTRA_CHARGE_DURATION;
+    boss.ultraChargeDamage = 0;
+  }
+
+  _spawnUltraRushBoss(boss) {
+    const stageIdx        = this.stageIndex;
+    const normalMidBossHp = Math.round(10 * Math.pow(2, stageIdx));
+    const rushHp          = Math.max(1, normalMidBossHp * 3 - boss.ultraChargeDamage);
+    this.enemies.push(new Enemy({
+      x: boss.x,
+      y: boss.y + boss.radius + 30,
+      attribute: boss.attribute,
+      speed: 160 * this.speedMultiplier,
+      hp: rushHp,
+      isMidBoss: true,
+      isRushBoss: true,
+      drawImmune: true,
+    }));
   }
 
   _executeGrandBossSkill(boss, phase) {
@@ -583,22 +761,26 @@ export class GameManager {
   // ── Private: judgment & scoring ──────────────────────────────────────────
 
   _handleJudgment(result, bullet, enemy) {
-    const power = this._getAttackPower(bullet.attribute);
+    const power        = this._getAttackPower(bullet.attribute);
+    // Pierce and split bullets bypass the ultra-boss absorption barrier
+    const bypassAbsorb = bullet.isPierce || bullet.isSplit;
 
     if (bullet.isPierce) {
       // Speed level also boosts pierce damage (+60% per level, same as attack power)
-      const speedLv    = this.skills[`${ATTR.ROCK}_com_speed`] || 0;
-      const piercePow  = power * (1 + 0.6 * speedLv);
-      this._applyDamage(enemy, Math.max(1, Math.round(2 * piercePow)), bullet.attribute);
+      const speedLv   = this.skills[`${ATTR.ROCK}_com_speed`] || 0;
+      const piercePow = power * (1 + 0.6 * speedLv);
+      this._applyDamage(enemy, Math.max(1, Math.round(2 * piercePow)), bullet.attribute, true);
     } else if (result === 'WIN') {
-      this._applyDamage(enemy, Math.max(1, Math.round(2 * power)), bullet.attribute);
+      this._applyDamage(enemy, Math.max(1, Math.round(2 * power)), bullet.attribute, bypassAbsorb);
       if (bullet.isSplit && !bullet.isFragment) this._spawnSplitFragments(bullet, enemy);
     } else if (result === 'DRAW') {
-      const drawImmune = enemy.drawImmune || (enemy.isBoss && enemy.bossShieldPhase === 2);
+      // bossShieldPhase 2 = draw-immune (grand boss only, not ultra boss)
+      const drawImmune = enemy.drawImmune ||
+        (enemy.isBoss && !enemy.isUltraBoss && !enemy.noShield && enemy.bossShieldPhase === 2);
       if (drawImmune) {
         this._spawnHitParticles(enemy.x, enemy.y, '#888888', 5);
       } else {
-        this._applyDamage(enemy, Math.max(1, Math.round(1 * power)), bullet.attribute);
+        this._applyDamage(enemy, Math.max(1, Math.round(1 * power)), bullet.attribute, bypassAbsorb);
         if (bullet.isSplit && !bullet.isFragment) this._spawnSplitFragments(bullet, enemy);
       }
     } else {
@@ -606,12 +788,29 @@ export class GameManager {
     }
   }
 
-  _applyDamage(enemy, dmg, attackAttr) {
-    // Damage shield: block all damage
-    if (enemy.isBoss && enemy.bossShieldPhase === 1) {
-      this._spawnHitParticles(enemy.x, enemy.y, '#00AAFF', 6);
-      return;
+  _applyDamage(enemy, dmg, attackAttr, bypassAbsorb = false) {
+    if (enemy.isUltraBoss) {
+      // Charging: accumulate damage into the rush-boss pre-damage pool
+      if (enemy.ultraCharging) {
+        enemy.ultraChargeDamage += dmg;
+        this._spawnHitParticles(enemy.x, enemy.y, '#FF8800', 5);
+        return;
+      }
+      // Absorption barrier: heal boss instead (pierce/split/laser bypass this)
+      if (enemy.ultraAbsorbActive && !bypassAbsorb) {
+        enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.ceil(dmg * 0.5));
+        this._spawnHitParticles(enemy.x, enemy.y, '#00FF88', 7);
+        return;
+      }
+      // Otherwise fall through to normal damage (ultra boss has no GUARD shield)
+    } else {
+      // Normal / Grand boss GUARD shield (not for noShield spawns)
+      if (enemy.isBoss && !enemy.noShield && enemy.bossShieldPhase === 1) {
+        this._spawnHitParticles(enemy.x, enemy.y, '#00AAFF', 6);
+        return;
+      }
     }
+
     enemy.hp -= dmg;
     if (enemy.hp <= 0) {
       this._destroyEnemy(enemy, attackAttr);
@@ -656,34 +855,44 @@ export class GameManager {
 
       // Spectacular particle burst
       const burstColors = ['#FFD700', '#FF4500', '#2ECC71', '#3498DB', '#E74C3C', '#FFFFFF', '#E67E22'];
-      const burstCount  = enemy.isGrandBoss ? 28 : 18;
+      const burstCount  = enemy.isUltraBoss ? 45 : enemy.isGrandBoss ? 28 : 18;
       for (const color of burstColors) {
         for (let i = 0; i < burstCount; i++) {
           const angle = Math.random() * Math.PI * 2;
-          const speed = 180 + Math.random() * 400;
+          const speed = 180 + Math.random() * (enemy.isUltraBoss ? 550 : 400);
           this.particles.push(new Particle({
             x: enemy.x, y: enemy.y, color,
-            radius: 7 + Math.random() * 12,
+            radius: 7 + Math.random() * (enemy.isUltraBoss ? 18 : 12),
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed - 120,
-            life: 0.7 + Math.random() * 0.7,
+            life: 0.7 + Math.random() * (enemy.isUltraBoss ? 1.0 : 0.7),
           }));
         }
       }
 
-      // Expanding ring shockwaves (grand boss gets extra ring)
-      this.bossDeathRings = [
-        { x: enemy.x, y: enemy.y, maxRadius: 280, life: 1.0, maxLife: 1.0, color: '#FFD700' },
-        { x: enemy.x, y: enemy.y, maxRadius: 200, life: 0.8, maxLife: 0.8, color: '#FFFFFF' },
-        { x: enemy.x, y: enemy.y, maxRadius: 160, life: 0.6, maxLife: 0.6, color: '#FF4500' },
-      ];
-      if (enemy.isGrandBoss) {
-        this.bossDeathRings.push(
-          { x: enemy.x, y: enemy.y, maxRadius: 350, life: 1.2, maxLife: 1.2, color: '#CC00FF' }
-        );
+      // Expanding ring shockwaves
+      if (enemy.isUltraBoss) {
+        this.bossDeathRings = [
+          { x: enemy.x, y: enemy.y, maxRadius: 400, life: 1.6, maxLife: 1.6, color: '#FF0000' },
+          { x: enemy.x, y: enemy.y, maxRadius: 320, life: 1.3, maxLife: 1.3, color: '#FF8800' },
+          { x: enemy.x, y: enemy.y, maxRadius: 260, life: 1.1, maxLife: 1.1, color: '#FFD700' },
+          { x: enemy.x, y: enemy.y, maxRadius: 200, life: 0.9, maxLife: 0.9, color: '#FFFFFF' },
+          { x: enemy.x, y: enemy.y, maxRadius: 150, life: 0.7, maxLife: 0.7, color: '#CC0000' },
+        ];
+      } else {
+        this.bossDeathRings = [
+          { x: enemy.x, y: enemy.y, maxRadius: 280, life: 1.0, maxLife: 1.0, color: '#FFD700' },
+          { x: enemy.x, y: enemy.y, maxRadius: 200, life: 0.8, maxLife: 0.8, color: '#FFFFFF' },
+          { x: enemy.x, y: enemy.y, maxRadius: 160, life: 0.6, maxLife: 0.6, color: '#FF4500' },
+        ];
+        if (enemy.isGrandBoss) {
+          this.bossDeathRings.push(
+            { x: enemy.x, y: enemy.y, maxRadius: 350, life: 1.2, maxLife: 1.2, color: '#CC00FF' }
+          );
+        }
       }
 
-      this.bossDeathFlash = 1.0;
+      this.bossDeathFlash = enemy.isUltraBoss ? 1.4 : 1.0;
     } else if (enemy.isMidBoss) {
       audio.playSfx(AUDIO.SFX_BOSS_KILL);
 
@@ -722,16 +931,18 @@ export class GameManager {
 
     const multiplier = 1 + 0.5 * chained.length;
     let pts = Math.round(100 * multiplier * this.effectiveScoreMult);
-    if (enemy.isBoss)    pts = Math.round(pts * (enemy.isGrandBoss ? 5 : 2));
-    else if (enemy.isMidBoss) pts = Math.round(pts * 3);
+    if (enemy.isBoss)          pts = Math.round(pts * (enemy.isUltraBoss ? 10 : enemy.isGrandBoss ? 5 : 2));
+    else if (enemy.isRushBoss) pts = Math.round(pts * 9);  // 3× mid-boss score
+    else if (enemy.isMidBoss)  pts = Math.round(pts * 3);
     this.score += pts;
   }
 
   _onEnemyEscaped(enemy) {
     const stageMult = this.stageIndex / 3 + 1;
     const diffMult  = DIFFICULTY_CONFIG[this.difficulty].damageMult;
-    const typeMult  = enemy.isBoss ? 3
-      : enemy.isMidBoss ? 15
+    const typeMult  = enemy.isBoss    ? 3
+      : enemy.isRushBoss ? 45  // 3× mid-boss (highly punishing — don't let the rush boss through)
+      : enemy.isMidBoss  ? 15
       : enemy.enemyType === ENEMY_TYPE.LARGE  ? 5
       : enemy.enemyType === ENEMY_TYPE.MEDIUM ? 3
       : 1;

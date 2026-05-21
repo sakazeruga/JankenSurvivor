@@ -39,8 +39,11 @@ function distributeAttributes(total, rng) {
 
 // ── Wave builder ───────────────────────────────────────────────────────────
 function buildWave(stageIdx, waveIdx, rng) {
-  const isGrandBossWave = waveIdx === 2;
-  const isMidBossWave   = waveIdx === 1;
+  // Stages 3, 6, 9 … (0-indexed 2, 5, 8 …) get the ultra boss on wave 3
+  const isUltraBossStage = stageIdx % 3 === 2;
+  const isGrandBossWave  = waveIdx === 2 && !isUltraBossStage;
+  const isUltraBossWave  = waveIdx === 2 && isUltraBossStage;
+  const isMidBossWave    = waveIdx === 1;
   // Wave 2 (waveIdx=1) is twice as long
   const count  = enemyCount(stageIdx) * (isMidBossWave ? 2 : 1);
   const speed  = enemySpeed(stageIdx);
@@ -88,7 +91,19 @@ function buildWave(stageIdx, waveIdx, rng) {
   const bossAttr     = ALL_ATTRS[Math.floor(rng() * 3)];
   const normalBossHp = Math.round(20 * Math.pow(2, stageIdx));
 
-  if (isGrandBossWave) {
+  if (isUltraBossWave) {
+    // Ultra boss: 9× normal HP (3× grand boss), massive, continuous spawns + special skills
+    defs.push({
+      attribute: bossAttr,
+      speed: 0,
+      hp: normalBossHp * 9,
+      x: CANVAS_W / 2,
+      y: 112,
+      isBoss: true,
+      isGrandBoss: false,
+      isUltraBoss: true,
+    });
+  } else if (isGrandBossWave) {
     // Grand boss: 3× HP, larger, has skill summons
     defs.push({
       attribute: bossAttr,

@@ -97,6 +97,7 @@ export const ENEMY_RADIUS        = 24;
 export const BOSS_RADIUS         = 38;
 export const GRAND_BOSS_RADIUS   = 52;
 export const MID_BOSS_RADIUS     = 46;
+export const ULTRA_BOSS_RADIUS   = 68;
 export const BULLET_RADIUS       = 10;
 export const BTN_AREA_H     = 130;
 export const KILL_LINE_Y    = CANVAS_H - BTN_AREA_H - 10;
