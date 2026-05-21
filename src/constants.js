@@ -2,6 +2,8 @@
 export const CANVAS_W = 390;
 export const CANVAS_H = 760;
 
+export const VERSION = 'v1.1.0';
+
 // ── Attribute definitions ──────────────────────────────────────────────────
 export const ATTR = Object.freeze({ ROCK: 'ROCK', SCISSORS: 'SCISSORS', PAPER: 'PAPER' });
 export const ALL_ATTRS = [ATTR.ROCK, ATTR.SCISSORS, ATTR.PAPER];

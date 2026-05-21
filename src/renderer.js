@@ -3,7 +3,7 @@ import {
   ATTR, ALL_ATTRS, ATTR_COLOR, ATTR_SYMBOL, ATTR_LABEL,
   COLORS, ENEMY_RADIUS,
   DIFFICULTY, DIFFICULTY_CONFIG,
-  BASE_HIT_PENALTY,
+  BASE_HIT_PENALTY, VERSION,
 } from './constants.js';
 import { GameState } from './game.js';
 
@@ -942,7 +942,11 @@ export class Renderer {
     ctx.fillStyle = '#FFF'; ctx.font = 'bold 26px sans-serif';
     ctx.fillText('タップしてはじめる', CANVAS_W / 2, sby + 33);
     ctx.fillStyle = COLORS.UI_DIM; ctx.font = '13px sans-serif';
-    ctx.fillText('Rock · Scissors · Paper — Survive!', CANVAS_W / 2, CANVAS_H - 30);
+    ctx.fillText('Rock · Scissors · Paper — Survive!', CANVAS_W / 2, CANVAS_H - 46);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font      = '11px sans-serif';
+    ctx.fillText(VERSION, CANVAS_W / 2, CANVAS_H - 24);
   }
 
   // ── Hit-testing helpers ───────────────────────────────────────────────────
