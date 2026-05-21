@@ -714,7 +714,7 @@ export class GameManager {
     const stageMult = this.stageIndex / 3 + 1;
     const diffMult  = DIFFICULTY_CONFIG[this.difficulty].damageMult;
     const typeMult  = enemy.isBoss ? 3
-      : enemy.isMidBoss ? 40
+      : enemy.isMidBoss ? 15
       : enemy.enemyType === ENEMY_TYPE.LARGE  ? 5
       : enemy.enemyType === ENEMY_TYPE.MEDIUM ? 3
       : 1;

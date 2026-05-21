@@ -73,12 +73,12 @@ function buildWave(stageIdx, waveIdx, rng) {
   // Mid-boss at exact midpoint of Wave 2
   if (isMidBossWave) {
     const midBossAttr = ALL_ATTRS[Math.floor(rng() * 3)];
-    // HP = 8× LARGE (typeHpMult=5) = 40× base hpMult
+    // HP = half of normal boss HP (normalBossHp = 20 * 2^stageIdx)
     defs.splice(Math.floor(defs.length / 2), 0, {
       attribute: midBossAttr,
       isMidBoss: true,
       speed: speed / 3,
-      hp: Math.round(40 * hpMult),
+      hp: Math.round(10 * Math.pow(2, stageIdx)),
       x: CANVAS_W / 2,
       y: SPAWN_Y,
     });
