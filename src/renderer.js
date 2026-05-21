@@ -89,9 +89,14 @@ export class Renderer {
     if (gm.state === GameState.TITLE) { this._drawTitle(); return; }
     if (gm.state === GameState.DIFFICULTY_SELECT) { this._drawDifficultySelect(); return; }
 
+    const isPaused = gm.state === GameState.PAUSED;
+    if (isPaused) ctx.filter = 'blur(5px)';
     this._drawPlayField(gm);
-    if (gm.state === GameState.WAVE_RESULT) this._drawSkillShop(gm);
-    if (gm.state === GameState.GAME_OVER)   this._drawGameOver(gm);
+    ctx.filter = 'none';
+
+    if (isPaused)                           { this._drawPauseOverlay(); return; }
+    if (gm.state === GameState.WAVE_RESULT)   this._drawSkillShop(gm);
+    if (gm.state === GameState.GAME_OVER)     this._drawGameOver(gm);
   }
 
   // ── Play field ───────────────────────────────────────────────────────────
@@ -554,6 +559,13 @@ export class Renderer {
     ctx.lineWidth   = 1;
     ctx.beginPath(); ctx.moveTo(0, 72); ctx.lineTo(CANVAS_W, 72); ctx.stroke();
 
+    // Pause button (top-right corner)
+    ctx.fillStyle    = 'rgba(255,255,255,0.40)';
+    ctx.font         = '18px sans-serif';
+    ctx.textAlign    = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText('⏸', CANVAS_W - 8, 5);
+
     const stageMult  = gm.stageIndex / 3 + 1;
     const diffMult   = DIFFICULTY_CONFIG[gm.difficulty]?.damageMult ?? 1;
     const penalty    = Math.round(BASE_HIT_PENALTY * stageMult * diffMult);
@@ -919,6 +931,30 @@ export class Renderer {
   }
 
   // ── Hit-testing helpers ───────────────────────────────────────────────────
+
+  _drawPauseOverlay() {
+    const { ctx } = this;
+    ctx.fillStyle = 'rgba(0,0,0,0.58)';
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+
+    ctx.fillStyle = 'rgba(255,255,255,0.90)';
+    ctx.font      = '72px sans-serif';
+    ctx.fillText('⏸', CANVAS_W / 2, CANVAS_H / 2 - 44);
+
+    ctx.font      = 'bold 38px sans-serif';
+    ctx.fillText('PAUSE', CANVAS_W / 2, CANVAS_H / 2 + 18);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font      = '16px sans-serif';
+    ctx.fillText('タップして再開', CANVAS_W / 2, CANVAS_H / 2 + 64);
+  }
+
+  isPauseBtn(cx, cy) {
+    return cx >= CANVAS_W - 44 && cy <= 30;
+  }
 
   isBombBtn(cx, cy) {
     const btnY = CANVAS_H - BTN_AREA_H;

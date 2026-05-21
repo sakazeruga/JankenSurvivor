@@ -21,6 +21,7 @@ export const GameState = Object.freeze({
   TITLE:            'TITLE',
   DIFFICULTY_SELECT:'DIFFICULTY_SELECT',
   PLAYING:          'PLAYING',
+  PAUSED:           'PAUSED',
   WAVE_RESULT:      'WAVE_RESULT',
   GAME_OVER:        'GAME_OVER',
 });
@@ -127,6 +128,11 @@ export class GameManager {
         this._fireLaser(sx, sy, attribute);
       }
     }
+  }
+
+  togglePause() {
+    if (this.state === GameState.PLAYING) this.state = GameState.PAUSED;
+    else if (this.state === GameState.PAUSED) this.state = GameState.PLAYING;
   }
 
   activateBomb() {

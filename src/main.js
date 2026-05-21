@@ -28,21 +28,24 @@ function loop(now) {
     gm.enemies.some(e => e.isBoss && e.alive && !e.exploding);
   const bossKey = hasGrandBoss ? 'grand' : hasNormalBoss ? 'boss' : 'none';
 
-  if (gm.state !== prevState || bossKey !== prevBossKey) {
-    if (gm.state === GameState.TITLE || gm.state === GameState.DIFFICULTY_SELECT) {
-      audio.playBgm(AUDIO.BGM_TITLE);
-    } else if (gm.state === GameState.WAVE_RESULT) {
-      // After every boss battle the skill-select screen uses title BGM
-      audio.playBgm(AUDIO.BGM_TITLE);
-    } else if (gm.state === GameState.PLAYING) {
-      if (hasGrandBoss)   audio.playBgm(AUDIO.BGM_GRAND_BOSS);
-      else if (hasNormalBoss) audio.playBgm(AUDIO.BGM_BOSS);
-      else                audio.playBgm(AUDIO.BGM_STAGE);
-    } else if (gm.state === GameState.GAME_OVER) {
-      audio.stopBgm();
+  // PAUSED: BGMはそのまま維持、prevStateも更新しない
+  if (gm.state !== GameState.PAUSED) {
+    if (gm.state !== prevState || bossKey !== prevBossKey) {
+      if (gm.state === GameState.TITLE || gm.state === GameState.DIFFICULTY_SELECT) {
+        audio.playBgm(AUDIO.BGM_TITLE);
+      } else if (gm.state === GameState.WAVE_RESULT) {
+        // After every boss battle the skill-select screen uses title BGM
+        audio.playBgm(AUDIO.BGM_TITLE);
+      } else if (gm.state === GameState.PLAYING) {
+        if (hasGrandBoss)       audio.playBgm(AUDIO.BGM_GRAND_BOSS);
+        else if (hasNormalBoss) audio.playBgm(AUDIO.BGM_BOSS);
+        else                    audio.playBgm(AUDIO.BGM_STAGE);
+      } else if (gm.state === GameState.GAME_OVER) {
+        audio.stopBgm();
+      }
+      prevState   = gm.state;
+      prevBossKey = bossKey;
     }
-    prevState   = gm.state;
-    prevBossKey = bossKey;
   }
 
   renderer.render(gm);
