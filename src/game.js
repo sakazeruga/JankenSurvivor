@@ -23,6 +23,7 @@ export const GameState = Object.freeze({
   PLAYING:          'PLAYING',
   WAVE_RESULT:      'WAVE_RESULT',
   GAME_OVER:        'GAME_OVER',
+  GAME_CLEAR:       'GAME_CLEAR',
 });
 
 // ── Skill storage key ──────────────────────────────────────────────────────
@@ -176,16 +177,34 @@ export class GameManager {
   advanceFromShop() {
     if (this.state !== GameState.WAVE_RESULT) return;
     audio.playSfx(AUDIO.SFX_START);
-    this.state = GameState.PLAYING;
     if (this._nextWaveIdx >= 0) {
+      this.state = GameState.PLAYING;
       this._loadWave(this._nextWaveIdx);
     } else {
+      if (this._checkGameClear()) return;
+      this.state = GameState.PLAYING;
       this._loadStage(this.stageIndex + 1);
     }
   }
 
+  startNextCycle() {
+    if (this.state !== GameState.GAME_CLEAR || !this.canContinue) return;
+    audio.playSfx(AUDIO.SFX_START);
+    this.state = GameState.PLAYING;
+    this._loadStage(this.stageIndex + 1);
+  }
+
+  goToTitle() {
+    this._reset();
+  }
+
+  togglePause() {
+    if (this.state !== GameState.PLAYING) return;
+    this.paused = !this.paused;
+  }
+
   update(dt) {
-    if (this.state === GameState.PLAYING) {
+    if (this.state === GameState.PLAYING && !this.paused) {
       this._updatePlaying(dt);
     }
   }
@@ -244,6 +263,9 @@ export class GameManager {
     this.shieldInvincTimer = 0;
     this.shieldCTTimer     = 0;
     this.bombsUsed         = 0;
+    this.paused            = false;
+    this.clearCycles       = 0;
+    this.canContinue       = false;
   }
 
   _loadStage(index) {
@@ -703,6 +725,20 @@ export class GameManager {
       this.score = 0;
       this.state = GameState.GAME_OVER;
     }
+  }
+
+  _checkGameClear() {
+    const cfg       = DIFFICULTY_CONFIG[this.difficulty];
+    const completed = this.stageIndex + 1; // 1-indexed completed stage count
+    const isMilestone = cfg.clearEvery && completed % cfg.clearEvery === 0;
+    const isMaxStage  = cfg.maxStage !== null && completed >= cfg.maxStage;
+    if (!isMilestone && !isMaxStage) return false;
+
+    const canContinue = !!cfg.clearEvery && (cfg.maxStage === null || completed < cfg.maxStage);
+    this.clearCycles++;
+    this.canContinue = canContinue;
+    this.state = GameState.GAME_CLEAR;
+    return true;
   }
 
   _onWaveCleared() {

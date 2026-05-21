@@ -5,6 +5,28 @@ import { audio } from './audio.js';
 const BTN_ATTRS    = [ATTR.ROCK, ATTR.SCISSORS, ATTR.PAPER];
 const DIFFICULTIES = [DIFFICULTY.EASY, DIFFICULTY.NORMAL, DIFFICULTY.HARD, DIFFICULTY.MERCILESS];
 
+async function doShare(gm) {
+  const isGameClear = gm.state === GameState.GAME_CLEAR;
+  const header = isGameClear
+    ? `🎉 GAME CLEAR！${gm.clearCycles}周目クリア`
+    : `STAGE ${gm.stageIndex + 1}  ${gm._nextWaveIdx === -1 ? 'STAGE CLEAR!' : `WAVE ${gm.waveIndex + 1} クリア`}`;
+  const lines = [
+    'じゃんけんサバイバーで遊んでます！',
+    header,
+    `スコア: ${gm.score.toLocaleString()}pt`,
+    '#じゃんけんサバイバー',
+  ];
+  const text = lines.join('\n');
+  if (navigator.share) {
+    try { await navigator.share({ text }); } catch (_) {}
+  } else if (navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(text);
+      audio.playSfx(AUDIO.SFX_POWERUP);
+    } catch (_) {}
+  }
+}
+
 export function setupInput(canvas, gm, renderer) {
   function scaledPos(clientX, clientY) {
     const rect   = canvas.getBoundingClientRect();
@@ -38,18 +60,25 @@ export function setupInput(canvas, gm, renderer) {
       return;
     }
 
+    if (gm.state === GameState.GAME_CLEAR) {
+      if (renderer.isGameClearShareBtn(x, y, gm)) { doShare(gm);            return; }
+      if (renderer.isGameClearNextBtn(x, y, gm))  { gm.startNextCycle();    return; }
+      if (renderer.isGameClearTitleBtn(x, y, gm)) { gm.goToTitle();         return; }
+      return;
+    }
+
     if (gm.state === GameState.WAVE_RESULT) {
-      if (renderer.isNextWaveBtn(x, y)) {
-        gm.advanceFromShop();
-        return;
-      }
+      if (renderer.isNextWaveBtn(x, y)) { gm.advanceFromShop(); return; }
+      if (renderer.isShareBtn(x, y))    { doShare(gm);          return; }
       const skillId = renderer.getSkillCardId(x, y, gm.offeredSkills);
       if (skillId) gm.selectSkill(skillId);
       return;
     }
 
     if (gm.state === GameState.PLAYING) {
-      if (renderer.isBombBtn(x, y)) { gm.activateBomb(); return; }
+      if (gm.paused) { gm.togglePause(); return; }
+      if (renderer.isPauseBtn(x, y)) { gm.togglePause(); return; }
+      if (renderer.isBombBtn(x, y))  { gm.activateBomb(); return; }
       const idx = renderer.getButtonIndex(x, y);
       if (idx >= 0) gm.fireBullet(BTN_ATTRS[idx]);
     }

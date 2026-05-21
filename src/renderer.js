@@ -90,8 +90,10 @@ export class Renderer {
     if (gm.state === GameState.DIFFICULTY_SELECT) { this._drawDifficultySelect(); return; }
 
     this._drawPlayField(gm);
+    if (gm.paused)                          this._drawPauseOverlay();
     if (gm.state === GameState.WAVE_RESULT) this._drawSkillShop(gm);
     if (gm.state === GameState.GAME_OVER)   this._drawGameOver(gm);
+    if (gm.state === GameState.GAME_CLEAR)  this._drawGameClear(gm);
   }
 
   // ── Play field ───────────────────────────────────────────────────────────
@@ -552,12 +554,22 @@ export class Renderer {
     ctx.font      = '12px sans-serif';
     ctx.fillText(`STAGE ${gm.stageIndex + 1}`, CANVAS_W / 2, 50);
 
+    // Pause button (top-right of HUD)
+    const pbx = CANVAS_W - 40, pby = 4, pbw = 34, pbh = 34;
+    ctx.fillStyle = 'rgba(255,255,255,0.13)';
+    ctx.beginPath(); ctx.roundRect(pbx, pby, pbw, pbh, 6); ctx.fill();
+    ctx.fillStyle    = '#FFF';
+    ctx.font         = '20px sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(gm.paused ? '▶' : '⏸', pbx + pbw / 2, pby + pbh / 2);
+
     const diffCfg = DIFFICULTY_CONFIG[gm.difficulty] ?? DIFFICULTY_CONFIG[DIFFICULTY.EASY];
     ctx.fillStyle    = diffCfg.color;
     ctx.font         = 'bold 14px sans-serif';
     ctx.textAlign    = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText(diffCfg.label, CANVAS_W - 16, 28);
+    ctx.fillText(diffCfg.label, pbx - 6, 28);
 
     if ((gm.shieldCharges || 0) > 0) {
       ctx.font = '13px sans-serif';
@@ -565,13 +577,13 @@ export class Renderer {
       const ct  = gm.shieldCTTimer    || 0;
       if (inv > 0) {
         ctx.fillStyle = '#00DDFF';
-        ctx.fillText(`🛡 Lv.${gm.shieldCharges} ▶${inv.toFixed(1)}s`, CANVAS_W - 16, 52);
+        ctx.fillText(`🛡 Lv.${gm.shieldCharges} ▶${inv.toFixed(1)}s`, pbx - 6, 52);
       } else if (ct > 0) {
         ctx.fillStyle = '#7799BB';
-        ctx.fillText(`🛡 Lv.${gm.shieldCharges} CT${ct.toFixed(1)}s`, CANVAS_W - 16, 52);
+        ctx.fillText(`🛡 Lv.${gm.shieldCharges} CT${ct.toFixed(1)}s`, pbx - 6, 52);
       } else {
         ctx.fillStyle = '#3498DB';
-        ctx.fillText(`🛡 Lv.${gm.shieldCharges} 待機中`, CANVAS_W - 16, 52);
+        ctx.fillText(`🛡 Lv.${gm.shieldCharges} 待機中`, pbx - 6, 52);
       }
     }
   }
@@ -701,6 +713,18 @@ export class Renderer {
     } else {
       ctx.fillText(`WAVE ${gm.waveIndex + 1} → ${(gm._nextWaveIdx || 0) + 1}`, CANVAS_W / 2, nby + 68);
     }
+
+    // Share button
+    const sby = nby + 56 + 18;
+    ctx.fillStyle = '#1A5276';
+    ctx.beginPath(); ctx.roundRect(CANVAS_W / 2 - 100, sby, 200, 44, 12); ctx.fill();
+    ctx.strokeStyle = '#2E86C1';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath(); ctx.roundRect(CANVAS_W / 2 - 100, sby, 200, 44, 12); ctx.stroke();
+    ctx.fillStyle    = '#FFF';
+    ctx.font         = 'bold 15px sans-serif';
+    ctx.textAlign    = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('📤 結果をシェア', CANVAS_W / 2, sby + 22);
   }
 
   _drawSkillColumn(cx, cy, w, h, skill, catMeta, isRare, level, cost, canBuy, shopDone) {
@@ -785,6 +809,109 @@ export class Renderer {
       } else { line = test; }
     }
     ctx.fillText(line, cx, y);
+  }
+
+  // ── Game clear ────────────────────────────────────────────────────────────
+
+  _gameClearLayout(gm) {
+    const base = 248, btnH = 52, gap = 14;
+    let y = base;
+    const shareY = y; y += btnH + gap;
+    const nextY  = gm.canContinue ? y : null;
+    if (gm.canContinue) y += btnH + gap;
+    const titleY = y;
+    return { shareY, nextY, titleY };
+  }
+
+  _drawGameClear(gm) {
+    const { ctx } = this;
+    const diffCfg = DIFFICULTY_CONFIG[gm.difficulty];
+
+    ctx.fillStyle = 'rgba(10,8,20,0.97)';
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    // Gold top bar
+    const grad = ctx.createLinearGradient(0, 0, CANVAS_W, 0);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(0.5, 'rgba(255,215,0,0.5)');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, CANVAS_W, 5);
+
+    // Title
+    ctx.save();
+    ctx.shadowColor = '#FFD700';
+    ctx.shadowBlur  = 22;
+    ctx.fillStyle   = '#FFD700';
+    ctx.font        = 'bold 42px sans-serif';
+    ctx.textAlign   = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🎉 GAME CLEAR!', CANVAS_W / 2, 62);
+    ctx.restore();
+
+    // Cycle label
+    ctx.fillStyle    = COLORS.UI_TEXT;
+    ctx.font         = 'bold 20px sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${gm.clearCycles}周目クリア！`, CANVAS_W / 2, 108);
+
+    // Difficulty + stage badge
+    ctx.fillStyle = diffCfg.color;
+    ctx.font      = 'bold 14px sans-serif';
+    ctx.fillText(`${diffCfg.label}  STAGE ${gm.stageIndex + 1}`, CANVAS_W / 2, 136);
+
+    // Score
+    ctx.fillStyle = '#FFD700';
+    ctx.font      = 'bold 42px sans-serif';
+    ctx.fillText(gm.score.toLocaleString(), CANVAS_W / 2, 188);
+    ctx.fillStyle = COLORS.UI_DIM;
+    ctx.font      = '14px sans-serif';
+    ctx.fillText('FINAL SCORE', CANVAS_W / 2, 216);
+
+    const layout = this._gameClearLayout(gm);
+    const bx = CANVAS_W / 2 - 120;
+    const bw = 240;
+
+    // Share button
+    ctx.fillStyle = '#1A5276';
+    ctx.beginPath(); ctx.roundRect(bx, layout.shareY, bw, 52, 14); ctx.fill();
+    ctx.strokeStyle = '#2E86C1'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(bx, layout.shareY, bw, 52, 14); ctx.stroke();
+    ctx.fillStyle = '#FFF'; ctx.font = 'bold 17px sans-serif'; ctx.textBaseline = 'middle';
+    ctx.fillText('📤 結果をシェア', CANVAS_W / 2, layout.shareY + 26);
+
+    // N周目へ button
+    if (gm.canContinue) {
+      ctx.fillStyle = '#E67E22';
+      ctx.beginPath(); ctx.roundRect(bx, layout.nextY, bw, 52, 14); ctx.fill();
+      ctx.fillStyle = '#FFF'; ctx.font = 'bold 17px sans-serif';
+      ctx.fillText(`${gm.clearCycles + 1}周目へ →`, CANVAS_W / 2, layout.nextY + 26);
+    }
+
+    // Title button
+    ctx.fillStyle = '#2C3E50';
+    ctx.beginPath(); ctx.roundRect(bx, layout.titleY, bw, 52, 14); ctx.fill();
+    ctx.fillStyle = '#FFF'; ctx.font = 'bold 17px sans-serif';
+    ctx.fillText('タイトルに戻る', CANVAS_W / 2, layout.titleY + 26);
+  }
+
+  // ── Pause overlay ────────────────────────────────────────────────────────
+
+  _drawPauseOverlay() {
+    const { ctx } = this;
+    ctx.fillStyle = 'rgba(0,0,0,0.68)';
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    ctx.fillStyle    = '#FFF';
+    ctx.font         = 'bold 44px sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⏸ PAUSE', CANVAS_W / 2, CANVAS_H / 2 - 20);
+
+    ctx.fillStyle = COLORS.UI_DIM;
+    ctx.font      = '17px sans-serif';
+    ctx.fillText('タップして再開', CANVAS_W / 2, CANVAS_H / 2 + 26);
   }
 
   // ── Difficulty select ─────────────────────────────────────────────────────
@@ -889,6 +1016,36 @@ export class Renderer {
   }
 
   // ── Hit-testing helpers ───────────────────────────────────────────────────
+
+  isGameClearShareBtn(cx, cy, gm) {
+    const { shareY } = this._gameClearLayout(gm);
+    return cx >= CANVAS_W / 2 - 120 && cx <= CANVAS_W / 2 + 120 &&
+           cy >= shareY && cy <= shareY + 52;
+  }
+
+  isGameClearNextBtn(cx, cy, gm) {
+    const { nextY } = this._gameClearLayout(gm);
+    if (nextY === null) return false;
+    return cx >= CANVAS_W / 2 - 120 && cx <= CANVAS_W / 2 + 120 &&
+           cy >= nextY && cy <= nextY + 52;
+  }
+
+  isGameClearTitleBtn(cx, cy, gm) {
+    const { titleY } = this._gameClearLayout(gm);
+    return cx >= CANVAS_W / 2 - 120 && cx <= CANVAS_W / 2 + 120 &&
+           cy >= titleY && cy <= titleY + 52;
+  }
+
+  isPauseBtn(cx, cy) {
+    return cx >= CANVAS_W - 40 && cx <= CANVAS_W - 6 && cy >= 4 && cy <= 38;
+  }
+
+  isShareBtn(cx, cy) {
+    const nby = 108 + 200 + 12 + 26;  // gridY + cardH + 12 + 26
+    const sby = nby + 56 + 18;
+    return cx >= CANVAS_W / 2 - 100 && cx <= CANVAS_W / 2 + 100 &&
+           cy >= sby && cy <= sby + 44;
+  }
 
   isBombBtn(cx, cy) {
     const btnY = CANVAS_H - BTN_AREA_H;

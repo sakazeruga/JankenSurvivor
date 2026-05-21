@@ -24,6 +24,16 @@ export class AudioManager {
     }
   }
 
+  pauseBgm() {
+    if (this._bgm && !this._bgm.paused) this._bgm.pause();
+  }
+
+  resumeBgm() {
+    if (this._bgm && this._bgm.paused && this._bgmUrl) {
+      this._bgm.play().catch(() => {});
+    }
+  }
+
   stopBgm() {
     if (this._bgm) { this._bgm.pause(); this._bgm = null; }
     this._bgmUrl = null;

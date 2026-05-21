@@ -39,10 +39,10 @@ export const DIFFICULTY = Object.freeze({
 });
 
 export const DIFFICULTY_CONFIG = {
-  EASY:      { speedMult: 1.0, scoreMult: 1.0, damageMult: 0.5, label: 'イージー',  color: '#2ECC71' },
-  NORMAL:    { speedMult: 1.5, scoreMult: 1.5, damageMult: 1.0, label: 'ノーマル',  color: '#3498DB' },
-  HARD:      { speedMult: 2.0, scoreMult: 2.0, damageMult: 2.0, label: 'ハード',    color: '#E67E22' },
-  MERCILESS: { speedMult: 3.0, scoreMult: 3.0, damageMult: 3.0, label: '無慈悲',    color: '#E74C3C' },
+  EASY:      { speedMult: 1.0, scoreMult: 1.0, damageMult: 0.5, label: 'イージー',  color: '#2ECC71', maxStage: 3,    clearEvery: null },
+  NORMAL:    { speedMult: 1.5, scoreMult: 1.5, damageMult: 1.0, label: 'ノーマル',  color: '#3498DB', maxStage: 10,   clearEvery: null },
+  HARD:      { speedMult: 2.0, scoreMult: 2.0, damageMult: 2.0, label: 'ハード',    color: '#E67E22', maxStage: 20,   clearEvery: 10   },
+  MERCILESS: { speedMult: 3.0, scoreMult: 3.0, damageMult: 3.0, label: '無慈悲',    color: '#E74C3C', maxStage: null, clearEvery: 10   },
 };
 
 // ── Enemy types ────────────────────────────────────────────────────────────
@@ -112,6 +112,8 @@ export const AUDIO = {
   BGM_STAGE:      'assets/audio/StageBGM.mp3',
   BGM_BOSS:       'assets/audio/BossBGM.mp3',
   BGM_GRAND_BOSS: 'assets/audio/GrandBossBGM.mp3',
+  BGM_GAME_CLEAR: 'assets/audio/GameClearBGM.mp3',
+  BGM_GAME_OVER:  'assets/audio/GameOverBGM.mp3',
   SFX_ROCK:       'assets/wav/UseRock.mp3',
   SFX_SCISSORS:   'assets/wav/UseScissor.mp3',
   SFX_PAPER:      'assets/wav/UsePaper.mp3',

@@ -14,6 +14,7 @@ window._gm = gm; window._renderer = renderer;  // debug
 let lastTime       = performance.now();
 let prevState      = null;
 let prevBossKey    = '';  // 'none' | 'boss' | 'grand'
+let prevPaused     = false;
 
 function loop(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.05);
@@ -21,14 +22,21 @@ function loop(now) {
 
   gm.update(dt);
 
-  // BGM management
-  const hasGrandBoss = gm.state === GameState.PLAYING &&
+  // Pause BGM when game is paused
+  if (gm.paused !== prevPaused) {
+    if (gm.paused) audio.pauseBgm();
+    else           audio.resumeBgm();
+    prevPaused = gm.paused;
+  }
+
+  // BGM management (skip while paused to avoid state drift)
+  const hasGrandBoss = !gm.paused && gm.state === GameState.PLAYING &&
     gm.enemies.some(e => e.isGrandBoss && e.alive && !e.exploding);
-  const hasNormalBoss = !hasGrandBoss && gm.state === GameState.PLAYING &&
+  const hasNormalBoss = !gm.paused && !hasGrandBoss && gm.state === GameState.PLAYING &&
     gm.enemies.some(e => e.isBoss && e.alive && !e.exploding);
   const bossKey = hasGrandBoss ? 'grand' : hasNormalBoss ? 'boss' : 'none';
 
-  if (gm.state !== prevState || bossKey !== prevBossKey) {
+  if (!gm.paused && (gm.state !== prevState || bossKey !== prevBossKey)) {
     if (gm.state === GameState.TITLE || gm.state === GameState.DIFFICULTY_SELECT) {
       audio.playBgm(AUDIO.BGM_TITLE);
     } else if (gm.state === GameState.WAVE_RESULT) {
@@ -39,7 +47,9 @@ function loop(now) {
       else if (hasNormalBoss) audio.playBgm(AUDIO.BGM_BOSS);
       else                audio.playBgm(AUDIO.BGM_STAGE);
     } else if (gm.state === GameState.GAME_OVER) {
-      audio.stopBgm();
+      audio.playBgm(AUDIO.BGM_GAME_OVER);
+    } else if (gm.state === GameState.GAME_CLEAR) {
+      audio.playBgm(AUDIO.BGM_GAME_CLEAR);
     }
     prevState   = gm.state;
     prevBossKey = bossKey;
