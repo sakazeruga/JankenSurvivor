@@ -73,15 +73,17 @@ function buildWave(stageIdx, waveIdx, rng) {
     [defs[i], defs[j]] = [defs[j], defs[i]];
   }
 
+  // Stage 6 (stageIdx=5) まで 2^stageIdx、それ以降は指数の伸びを 60% に抑える
+  const bossExp      = stageIdx <= 5 ? stageIdx : 5 + (stageIdx - 5) * 0.6;
+
   // Mid-boss at exact midpoint of Wave 2
   if (isMidBossWave) {
     const midBossAttr = ALL_ATTRS[Math.floor(rng() * 3)];
-    // HP = half of normal boss HP (normalBossHp = 20 * 2^stageIdx)
     defs.splice(Math.floor(defs.length / 2), 0, {
       attribute: midBossAttr,
       isMidBoss: true,
       speed: speed / 3,
-      hp: Math.round(10 * Math.pow(2, stageIdx)),
+      hp: Math.round(10 * Math.pow(2, bossExp)),
       x: CANVAS_W / 2,
       y: SPAWN_Y,
     });
@@ -89,7 +91,7 @@ function buildWave(stageIdx, waveIdx, rng) {
 
   // Boss at end of every wave
   const bossAttr     = ALL_ATTRS[Math.floor(rng() * 3)];
-  const normalBossHp = Math.round(20 * Math.pow(2, stageIdx));
+  const normalBossHp = Math.round(20 * Math.pow(2, bossExp));
 
   if (isUltraBossWave) {
     // Ultra boss: 9× normal HP (3× grand boss), massive, continuous spawns + special skills
