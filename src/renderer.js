@@ -749,22 +749,49 @@ export class Renderer {
     ctx.lineWidth   = 1;
     ctx.beginPath(); ctx.moveTo(0, btnY); ctx.lineTo(CANVAS_W, btnY); ctx.stroke();
 
+    const half      = CANVAS_W / 2;
+    const pad       = 4;
+    const bh        = BOMB_H - 6;   // button height = 32
+    const bmid      = btnY + 4 + bh / 2;
+
+    // ── 左：ボムボタン ───────────────────────────────────────────────────────
     const remaining = gm.bombsRemaining;
     const canBomb   = gm.score >= 100 && remaining > 0;
     const bombCost  = Math.floor(gm.score / 2);
-
     ctx.save();
     ctx.globalAlpha = canBomb ? 1.0 : 0.35;
     ctx.fillStyle   = canBomb ? '#E67E22' : '#555';
-    ctx.beginPath(); ctx.roundRect(CANVAS_W / 2 - 100, btnY + 4, 200, BOMB_H - 6, 10); ctx.fill();
-    ctx.fillStyle    = '#FFF';
-    ctx.font         = 'bold 13px sans-serif';
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.beginPath(); ctx.roundRect(pad, btnY + 4, half - pad * 2, bh, 10); ctx.fill();
+    ctx.fillStyle = '#FFF'; ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(
-      remaining > 0 ? `💣 ×${remaining}  BOMB  -${bombCost.toLocaleString()}pt` : '💣 使用回数0',
-      CANVAS_W / 2, btnY + 4 + (BOMB_H - 6) / 2
+      remaining > 0 ? `💣 ×${remaining}  -${bombCost.toLocaleString()}pt` : '💣 使用回数0',
+      half / 2, bmid
     );
+    ctx.restore();
+
+    // ── 右：守護盾ボタン ─────────────────────────────────────────────────────
+    const sc  = gm.shieldCharges;
+    const siv = gm.shieldInvincTimer;
+    const sct = gm.shieldCTTimer;
+    let shieldBg, shieldAlpha, shieldLabel;
+    if (sc === 0) {
+      shieldBg = '#555'; shieldAlpha = 0.35; shieldLabel = '🛡 なし';
+    } else if (siv > 0) {
+      shieldBg = '#1E78FF'; shieldAlpha = 1.0; shieldLabel = `🛡 無敵 ${siv.toFixed(1)}s`;
+    } else if (sct > 0) {
+      shieldBg = '#555'; shieldAlpha = 0.7; shieldLabel = `🛡 CT ${sct.toFixed(1)}s`;
+    } else {
+      shieldBg = '#2980B9'; shieldAlpha = 1.0; shieldLabel = `🛡 Lv.${sc} 発動`;
+    }
+    ctx.save();
+    ctx.globalAlpha = shieldAlpha;
+    ctx.fillStyle   = shieldBg;
+    ctx.beginPath(); ctx.roundRect(half + pad, btnY + 4, half - pad * 2, bh, 10); ctx.fill();
+    ctx.fillStyle = '#FFF'; ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.globalAlpha = Math.max(shieldAlpha, 0.6);
+    ctx.fillText(shieldLabel, half + half / 2, bmid);
     ctx.restore();
 
     ctx.strokeStyle = 'rgba(255,255,255,0.07)';
@@ -1078,6 +1105,17 @@ export class Renderer {
     ctx.fillStyle = 'rgba(255,255,255,0.45)';
     ctx.font      = '16px sans-serif';
     ctx.fillText('タップして再開', CANVAS_W / 2, CANVAS_H / 2 + 64);
+
+    // タイトルへボタン
+    const tbx = CANVAS_W / 2 - 90, tby = CANVAS_H / 2 + 100;
+    ctx.save();
+    ctx.globalAlpha = 0.82;
+    ctx.fillStyle   = '#444';
+    ctx.beginPath(); ctx.roundRect(tbx, tby, 180, 44, 12); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.80)';
+    ctx.font      = 'bold 16px sans-serif';
+    ctx.fillText('タイトルへ', CANVAS_W / 2, tby + 22);
   }
 
   // ── Difficulty select ─────────────────────────────────────────────────────
@@ -1304,8 +1342,20 @@ export class Renderer {
 
   isBombBtn(cx, cy) {
     const btnY = CANVAS_H - BTN_AREA_H;
-    return cx >= CANVAS_W / 2 - 100 && cx <= CANVAS_W / 2 + 100 &&
-           cy >= btnY + 4 && cy <= btnY + 32;
+    return cx >= 4 && cx <= CANVAS_W / 2 - 4 &&
+           cy >= btnY + 4 && cy <= btnY + 36;
+  }
+
+  isShieldBtn(cx, cy) {
+    const btnY = CANVAS_H - BTN_AREA_H;
+    return cx >= CANVAS_W / 2 + 4 && cx <= CANVAS_W - 4 &&
+           cy >= btnY + 4 && cy <= btnY + 36;
+  }
+
+  isPauseTitleBtn(cx, cy) {
+    const tby = CANVAS_H / 2 + 100;
+    return cx >= CANVAS_W / 2 - 90 && cx <= CANVAS_W / 2 + 90 &&
+           cy >= tby && cy <= tby + 44;
   }
 
   getButtonIndex(cx, cy) {

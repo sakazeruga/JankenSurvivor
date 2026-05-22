@@ -103,13 +103,15 @@ export function setupInput(canvas, gm, renderer) {
     }
 
     if (gm.state === GameState.PAUSED) {
+      if (renderer.isPauseTitleBtn(x, y)) { gm.goToTitle(); return; }
       gm.togglePause();
       return;
     }
 
     if (gm.state === GameState.PLAYING) {
-      if (renderer.isPauseBtn(x, y)) { gm.togglePause(); return; }
-      if (renderer.isBombBtn(x, y))  { gm.activateBomb(); return; }
+      if (renderer.isPauseBtn(x, y))   { gm.togglePause();    return; }
+      if (renderer.isBombBtn(x, y))    { gm.activateBomb();   return; }
+      if (renderer.isShieldBtn(x, y))  { gm.activateShield(); return; }
 
       // ── Debug skip: 5 rapid taps on WAVE text ──────────────────────────
       if (renderer.isWaveTextArea(x, y)) {

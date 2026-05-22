@@ -168,6 +168,15 @@ export class GameManager {
     this.bombFlash = 0.55;
   }
 
+  activateShield() {
+    if (this.state !== GameState.PLAYING) return;
+    if (this.shieldCharges <= 0) return;
+    if (this.shieldCTTimer > 0) return;
+    if (this.shieldInvincTimer > 0) return;
+    this.shieldInvincTimer = 0.8 + 0.2 * this.shieldCharges;
+    audio.playSfx(AUDIO.SFX_POWERUP);
+  }
+
   selectSkill(skillId) {
     if (this.state !== GameState.WAVE_RESULT) return false;
     if (this.skillSelected) return false;
