@@ -248,13 +248,6 @@ export class GameManager {
     }
   }
 
-  startNextCycle() {
-    if (this.state !== GameState.GAME_CLEAR || !this.canContinue) return;
-    audio.playSfx(AUDIO.SFX_START);
-    this.state = GameState.PLAYING;
-    this._loadStage(this.stageIndex + 1);
-  }
-
   goToTitle() {
     this._reset();
   }
@@ -270,7 +263,6 @@ export class GameManager {
     this.columnPurchases = { ...saveData.columnPurchases };
     this.shieldCharges   = saveData.shieldCharges || 0;
     this.freeBombs       = saveData.freeBombs     || 0;
-    this.clearCycles     = saveData.clearCycles   || 0;
     this.state           = GameState.PLAYING;
     // _loadStage は INITIAL_SCORE 加算 + bombsUsed リセットをするので、後で上書き
     this._loadStage(saveData.stageIndex);
@@ -393,8 +385,6 @@ export class GameManager {
     this.bombsUsed         = 0;
     this.freeBombs         = 0;
     this.items             = [];
-    this.clearCycles       = 0;
-    this.canContinue       = false;
   }
 
   _loadStage(index) {
@@ -1123,14 +1113,8 @@ export class GameManager {
 
   _checkGameClear() {
     const cfg       = DIFFICULTY_CONFIG[this.difficulty];
-    const completed = this.stageIndex + 1; // 1-indexed completed stage count
-    const isMilestone = cfg.clearEvery && completed % cfg.clearEvery === 0;
-    const isMaxStage  = cfg.maxStage !== null && completed >= cfg.maxStage;
-    if (!isMilestone && !isMaxStage) return false;
-
-    const canContinue = !!cfg.clearEvery && (cfg.maxStage === null || completed < cfg.maxStage);
-    this.clearCycles++;
-    this.canContinue = canContinue;
+    const completed = this.stageIndex + 1;
+    if (completed < cfg.maxStage) return false;
     this.state = GameState.GAME_CLEAR;
     return true;
   }

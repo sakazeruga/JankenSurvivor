@@ -1052,14 +1052,12 @@ export class Renderer {
 
   // ── Game clear ────────────────────────────────────────────────────────────
 
-  _gameClearLayout(gm) {
+  _gameClearLayout() {
     const base = 248, btnH = 52, gap = 14;
     let y = base;
     const shareY = y; y += btnH + gap;
-    const nextY  = gm.canContinue ? y : null;
-    if (gm.canContinue) y += btnH + gap;
     const titleY = y;
-    return { shareY, nextY, titleY };
+    return { shareY, titleY };
   }
 
   _drawGameClear(gm) {
@@ -1088,13 +1086,6 @@ export class Renderer {
     ctx.fillText('🎉 GAME CLEAR!', CANVAS_W / 2, 62);
     ctx.restore();
 
-    // Cycle label
-    ctx.fillStyle    = COLORS.UI_TEXT;
-    ctx.font         = 'bold 20px sans-serif';
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`${gm.clearCycles}周目クリア！`, CANVAS_W / 2, 108);
-
     // Difficulty + stage badge
     ctx.fillStyle = diffCfg.color;
     ctx.font      = 'bold 14px sans-serif';
@@ -1108,7 +1099,7 @@ export class Renderer {
     ctx.font      = '14px sans-serif';
     ctx.fillText('FINAL SCORE', CANVAS_W / 2, 216);
 
-    const layout = this._gameClearLayout(gm);
+    const layout = this._gameClearLayout();
     const bx = CANVAS_W / 2 - 120;
     const bw = 240;
 
@@ -1119,14 +1110,6 @@ export class Renderer {
     ctx.beginPath(); ctx.roundRect(bx, layout.shareY, bw, 52, 14); ctx.stroke();
     ctx.fillStyle = '#FFF'; ctx.font = 'bold 17px sans-serif'; ctx.textBaseline = 'middle';
     ctx.fillText('📤 結果をシェア', CANVAS_W / 2, layout.shareY + 26);
-
-    // N周目へ button
-    if (gm.canContinue) {
-      ctx.fillStyle = '#E67E22';
-      ctx.beginPath(); ctx.roundRect(bx, layout.nextY, bw, 52, 14); ctx.fill();
-      ctx.fillStyle = '#FFF'; ctx.font = 'bold 17px sans-serif';
-      ctx.fillText(`${gm.clearCycles + 1}周目へ →`, CANVAS_W / 2, layout.nextY + 26);
-    }
 
     // Title button
     ctx.fillStyle = '#2C3E50';
@@ -1347,21 +1330,14 @@ export class Renderer {
 
   // ── Hit-testing helpers ───────────────────────────────────────────────────
 
-  isGameClearShareBtn(cx, cy, gm) {
-    const { shareY } = this._gameClearLayout(gm);
+  isGameClearShareBtn(cx, cy) {
+    const { shareY } = this._gameClearLayout();
     return cx >= CANVAS_W / 2 - 120 && cx <= CANVAS_W / 2 + 120 &&
            cy >= shareY && cy <= shareY + 52;
   }
 
-  isGameClearNextBtn(cx, cy, gm) {
-    const { nextY } = this._gameClearLayout(gm);
-    if (nextY === null) return false;
-    return cx >= CANVAS_W / 2 - 120 && cx <= CANVAS_W / 2 + 120 &&
-           cy >= nextY && cy <= nextY + 52;
-  }
-
-  isGameClearTitleBtn(cx, cy, gm) {
-    const { titleY } = this._gameClearLayout(gm);
+  isGameClearTitleBtn(cx, cy) {
+    const { titleY } = this._gameClearLayout();
     return cx >= CANVAS_W / 2 - 120 && cx <= CANVAS_W / 2 + 120 &&
            cy >= titleY && cy <= titleY + 52;
   }

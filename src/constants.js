@@ -41,10 +41,10 @@ export const DIFFICULTY = Object.freeze({
 });
 
 export const DIFFICULTY_CONFIG = {
-  EASY:      { speedMult: 1.0, scoreMult: 1.0, damageMult: 0.5, label: 'イージー',  color: '#2ECC71', maxStage: 3,    clearEvery: null },
-  NORMAL:    { speedMult: 1.5, scoreMult: 1.5, damageMult: 1.0, label: 'ノーマル',  color: '#3498DB', maxStage: 10,   clearEvery: null },
-  HARD:      { speedMult: 2.0, scoreMult: 2.0, damageMult: 2.0, label: 'ハード',    color: '#E67E22', maxStage: 20,   clearEvery: 10   },
-  MERCILESS: { speedMult: 3.0, scoreMult: 3.0, damageMult: 3.0, label: '無慈悲',    color: '#E74C3C', maxStage: null, clearEvery: 10   },
+  EASY:      { speedMult: 1.0, scoreMult: 1.0, damageMult: 0.5, label: 'イージー',  color: '#2ECC71', maxStage: 3  },
+  NORMAL:    { speedMult: 1.5, scoreMult: 1.5, damageMult: 1.0, label: 'ノーマル',  color: '#3498DB', maxStage: 10 },
+  HARD:      { speedMult: 2.0, scoreMult: 2.0, damageMult: 2.0, label: 'ハード',    color: '#E67E22', maxStage: 10 },
+  MERCILESS: { speedMult: 3.0, scoreMult: 3.0, damageMult: 3.0, label: '無慈悲',    color: '#E74C3C', maxStage: 10 },
 };
 
 // ── Enemy types ────────────────────────────────────────────────────────────

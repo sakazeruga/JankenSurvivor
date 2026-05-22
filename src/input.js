@@ -10,7 +10,7 @@ const DIFFICULTIES = [DIFFICULTY.EASY, DIFFICULTY.NORMAL, DIFFICULTY.HARD, DIFFI
 async function doShare(gm) {
   const isGameClear = gm.state === GameState.GAME_CLEAR;
   const header = isGameClear
-    ? `🎉 GAME CLEAR！${gm.clearCycles}周目クリア`
+    ? `🎉 GAME CLEAR！STAGE ${gm.stageIndex + 1} 完全クリア`
     : `STAGE ${gm.stageIndex + 1}  ${gm._nextWaveIdx === -1 ? 'STAGE CLEAR!' : `WAVE ${gm.waveIndex + 1} クリア`}`;
   const lines = [
     'じゃんけんサバイバーで遊んでます！',
@@ -82,9 +82,8 @@ export function setupInput(canvas, gm, renderer) {
     }
 
     if (gm.state === GameState.GAME_CLEAR) {
-      if (renderer.isGameClearShareBtn(x, y, gm)) { doShare(gm);            return; }
-      if (renderer.isGameClearNextBtn(x, y, gm))  { gm.startNextCycle();    return; }
-      if (renderer.isGameClearTitleBtn(x, y, gm)) { gm.goToTitle();         return; }
+      if (renderer.isGameClearShareBtn(x, y)) { doShare(gm);    return; }
+      if (renderer.isGameClearTitleBtn(x, y)) { gm.goToTitle(); return; }
       return;
     }
 

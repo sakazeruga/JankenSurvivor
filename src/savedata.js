@@ -42,7 +42,6 @@ export const savedata = {
       bombsUsed:       gm.bombsUsed,
       freeBombs:       gm.freeBombs    || 0,
       shieldCharges:   gm.shieldCharges,
-      clearCycles:     gm.clearCycles || 0,
     };
     const { error } = await supabase
       .from('saves')
