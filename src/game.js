@@ -962,19 +962,16 @@ export class GameManager {
       audio.playSfx(AUDIO.SFX_DESTROY);
     }
 
-    // ── 誘爆: 倒した敵のradius×1.5範囲内にいる同サイズ以下の雑魚を即死 ──────
+    // ── 誘爆: 倒した敵のradius×1.5範囲内にいる同サイズ以下の全敵を即死 ──────
     // Chain explosion logic is preserved in core.js / constants.js for future reuse.
-    if (!enemy.isBoss && !enemy.isMidBoss) {
-      const blastR = enemy.radius * 1.5;
-      for (const t of this.enemies) {
-        if (t === enemy || !t.alive || t.exploding) continue;
-        if (t.isBoss || t.isMidBoss)   continue; // ボス・中ボスは誘爆対象外
-        if (t.radius > enemy.radius)   continue; // 自分より大きい敵は安全
-        const dx = t.x - enemy.x;
-        const dy = t.y - enemy.y;
-        if (Math.sqrt(dx * dx + dy * dy) <= blastR) {
-          this._destroyEnemy(t); // スコア・パーティクル・SE・さらなる誘爆も発生
-        }
+    const blastR = enemy.radius * 1.5;
+    for (const t of this.enemies) {
+      if (t === enemy || !t.alive || t.exploding) continue;
+      if (t.radius > enemy.radius) continue; // 自分より大きい敵は安全
+      const dx = t.x - enemy.x;
+      const dy = t.y - enemy.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= blastR) {
+        this._destroyEnemy(t);
       }
     }
 
