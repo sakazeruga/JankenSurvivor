@@ -5,7 +5,7 @@
 HTML5 Canvas製のじゃんけんサバイバルゲーム。ESModules構成（バンドラなし）。
 開発サーバ：`npx serve` → `http://localhost:3000`
 リポジトリ：https://github.com/sakazeruga/JankenSurvivor  
-push 時は `git push --force origin main`（リモートが古い可能性があるため）
+push 時は `git push --force origin rich`（richブランチで開発。mainは別管理）
 
 ---
 
@@ -143,8 +143,10 @@ const speedMult = 1 + 0.4 * (this.skills[`${attribute}_com_speed`] || 0);
 | NORMAL | ×1 | ×1 | 24 |
 | MEDIUM | ×2 | ×3 | 32（24×1.35） |
 | LARGE | ×5 | ×5 | 42（24×1.75） |
-| 通常ボス | 20×2^stage | ×3 | 38 |
-| 大ボス | 60×2^stage | ×3 | 52 |
+| 中ボス | 10×2^stage | ×15 | 46 |
+| 通常ボス | 20×2^stage | ×3 | 54 |
+| 大ボス | 60×2^stage | ×3 | 66 |
+| 超大ボス | 180×2^stage | ×3 | 80 |
 
 ペナルティ計算：
 ```js
@@ -239,7 +241,7 @@ GAME_OVER → stopBgm()
 npx serve
 
 # push（force が必要）
-git push --force origin main
+git push --force origin rich
 
 # 状態確認
 git log --oneline -10
