@@ -146,6 +146,7 @@ export class Renderer {
     for (const l of gm.lasers)    this._drawLaser(l);
     for (const b of gm.bullets)   this._drawBullet(b);
     for (const e of gm.enemies)   this._drawEnemy(e);
+    for (const item of gm.items)  this._drawDropItem(item);
 
     this._drawHUD(gm);
     this._drawActiveSkillPanel(gm);
@@ -649,6 +650,54 @@ export class Renderer {
       ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle  = 'rgba(255,255,255,0.7)';
       ctx.beginPath(); ctx.arc(x - radius * 0.25, y - radius * 0.25, radius * 0.45, 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  // ── Drop Item ────────────────────────────────────────────────────────────
+
+  _drawDropItem(item) {
+    if (!item.alive) return;
+    const { ctx } = this;
+    const sz   = 30;
+    const bob  = Math.sin(item.bobTimer) * 3;
+
+    ctx.save();
+    ctx.translate(item.x, item.y + bob);
+
+    // 外枠グロー
+    ctx.shadowBlur  = 10;
+    ctx.shadowColor = item.kind === 'common' ? '#FFD700' : '#3498DB';
+
+    // 背景矩形
+    ctx.fillStyle   = item.kind === 'common' ? '#FFD700' : '#3498DB';
+    ctx.strokeStyle = item.kind === 'common' ? '#E67E22' : '#1A6FA8';
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    ctx.roundRect(-sz / 2, -sz / 2, sz, sz, 6);
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+
+    if (item.kind === 'common') {
+      // 上半分：属性手
+      ctx.font = `${sz * 0.42}px sans-serif`;
+      ctx.fillStyle = '#222';
+      ctx.fillText(ATTR_SYMBOL[item.attribute], 0, -sz * 0.16);
+      // 下半分：stat アイコン
+      const statIcon = item.stat === 'power' ? '⚡' : item.stat === 'speed' ? '☄️' : '💦';
+      ctx.font = `${sz * 0.35}px sans-serif`;
+      ctx.fillText(statIcon, 0, sz * 0.22);
+    } else {
+      // 汎用：中央に大きくアイコン
+      const icon = item.stat === 'score' ? '🎁' : item.stat === 'bomb' ? '💣'
+                 : item.stat === 'shield' ? '🛡' : '🔋';
+      ctx.font = `${sz * 0.55}px sans-serif`;
+      ctx.fillText(icon, 0, 1);
     }
 
     ctx.restore();

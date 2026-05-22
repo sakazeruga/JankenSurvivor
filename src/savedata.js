@@ -40,6 +40,7 @@ export const savedata = {
       skills:          { ...gm.skills },
       columnPurchases: { ...gm.columnPurchases },
       bombsUsed:       gm.bombsUsed,
+      freeBombs:       gm.freeBombs    || 0,
       shieldCharges:   gm.shieldCharges,
       clearCycles:     gm.clearCycles || 0,
     };

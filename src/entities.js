@@ -170,3 +170,27 @@ export class Particle {
     if (this.life <= 0) this.alive = false;
   }
 }
+
+// ── Drop Item ─────────────────────────────────────────────────────────────────
+// kind      : 'common' | 'general'
+// attribute : ATTR.ROCK / SCISSORS / PAPER  (common のみ)
+// stat      : 'power'|'speed'|'bullets'     (common)
+//           : 'score'|'bomb'|'shield'|'battery' (general)
+export class DropItem {
+  constructor(x, y, kind, attribute, stat) {
+    this.x         = x;
+    this.y         = y;
+    this.kind      = kind;
+    this.attribute = attribute;
+    this.stat      = stat;
+    this.alive     = true;
+    this.vy        = 55;                          // 落下速度 px/sec
+    this.bobTimer  = Math.random() * Math.PI * 2; // ふわふわ位相
+  }
+
+  update(dt) {
+    if (!this.alive) return;
+    this.y        += this.vy * dt;
+    this.bobTimer += dt * 2.5;
+  }
+}

@@ -1,5 +1,5 @@
 import { judge, chainExplosion } from './core.js';
-import { Enemy, Bullet, Laser, Particle } from './entities.js';
+import { Enemy, Bullet, Laser, Particle, DropItem } from './entities.js';
 import { generateStage } from './stage.js';
 import {
   ATTR, ALL_ATTRS, ATTR_COLOR, CHAIN_RADIUS, CHAIN_MAX_DEPTH,
@@ -168,6 +168,40 @@ export class GameManager {
     this.bombFlash = 0.55;
   }
 
+  // ── Drop item spawn ───────────────────────────────────────────────────────
+  _spawnDropItem(x, y) {
+    const isGeneral = Math.random() < 0.3;
+    let kind, attribute = null, stat;
+    if (isGeneral) {
+      kind = 'general';
+      const opts = ['score', 'bomb', 'shield', 'battery'];
+      stat = opts[Math.floor(Math.random() * opts.length)];
+    } else {
+      kind = 'common';
+      attribute = ALL_ATTRS[Math.floor(Math.random() * 3)];
+      const opts = ['power', 'speed', 'bullets'];
+      stat = opts[Math.floor(Math.random() * opts.length)];
+    }
+    this.items.push(new DropItem(x, y, kind, attribute, stat));
+  }
+
+  // ── Drop item collect ─────────────────────────────────────────────────────
+  _collectItem(item) {
+    item.alive = false;
+    audio.playSfx(AUDIO.SFX_POWERUP);
+    if (item.kind === 'common') {
+      const key = `${item.attribute}_com_${item.stat}`;
+      this.skills[key] = (this.skills[key] || 0) + 1;
+    } else {
+      switch (item.stat) {
+        case 'score':   this.skills['util_score'] = (this.skills['util_score'] || 0) + 1; break;
+        case 'bomb':    this.freeBombs++;                                                   break;
+        case 'shield':  this.shieldCharges++;                                               break;
+        case 'battery': this.shieldCTTimer = 0;                                             break;
+      }
+    }
+  }
+
   activateShield() {
     if (this.state !== GameState.PLAYING) return;
     if (this.shieldCharges <= 0) return;
@@ -235,6 +269,7 @@ export class GameManager {
     this.skills          = { ...saveData.skills };
     this.columnPurchases = { ...saveData.columnPurchases };
     this.shieldCharges   = saveData.shieldCharges || 0;
+    this.freeBombs       = saveData.freeBombs     || 0;
     this.clearCycles     = saveData.clearCycles   || 0;
     this.state           = GameState.PLAYING;
     // _loadStage は INITIAL_SCORE 加算 + bombsUsed リセットをするので、後で上書き
@@ -289,7 +324,7 @@ export class GameManager {
   }
 
   _maxBombs() {
-    return BOMBS_PER_STAGE + (this.skills['util_bomb'] || 0);
+    return BOMBS_PER_STAGE + (this.skills['util_bomb'] || 0) + this.freeBombs;
   }
 
   get bombsRemaining() {
@@ -346,6 +381,8 @@ export class GameManager {
     this.shieldInvincTimer = 0;
     this.shieldCTTimer     = 0;
     this.bombsUsed         = 0;
+    this.freeBombs         = 0;
+    this.items             = [];
     this.clearCycles       = 0;
     this.canContinue       = false;
   }
@@ -374,6 +411,7 @@ export class GameManager {
     this.shieldInvincTimer = 0;
     this.shieldCTTimer     = 0;
     this.bossDeathRings    = [];
+    this.items             = [];
   }
 
   // ── Private: skill offer ─────────────────────────────────────────────────
@@ -526,6 +564,13 @@ export class GameManager {
     this.bullets   = this.bullets.filter(b => b.alive);
     this.lasers    = this.lasers.filter(l => l.alive);
     this.particles = this.particles.filter(p => p.alive);
+
+    // ── ドロップアイテム更新・自動収集 ─────────────────────────────────────
+    for (const item of this.items) {
+      item.update(dt);
+      if (item.alive && item.y >= KILL_LINE_Y) this._collectItem(item);
+    }
+    this.items = this.items.filter(i => i.alive);
 
     if (!this.waveCleared && this.pendingDefs.length === 0 && this.enemies.length === 0) {
       this.waveCleared = true;
@@ -978,6 +1023,7 @@ export class GameManager {
       this.bossDeathFlash = enemy.isUltraBoss ? 1.4 : 1.0;
     } else if (enemy.isMidBoss) {
       audio.playSfx(AUDIO.SFX_BOSS_KILL);
+      this._spawnDropItem(enemy.x, enemy.y + 20);  // 中ボス：固定ドロップ
 
       // Mid-boss death burst — orange/gold, no enemy clear
       const midColors = ['#FF8C00', '#FFD700', '#FF4500', '#FFFFFF'];
@@ -1017,6 +1063,11 @@ export class GameManager {
       if (Math.sqrt(dx * dx + dy * dy) <= blastR) {
         this._destroyEnemy(t);
       }
+    }
+
+    // 大型雑魚：30% でドロップ（ボス系は別処理済み）
+    if (!enemy.isBoss && !enemy.isMidBoss && enemy.enemyType === ENEMY_TYPE.LARGE && Math.random() < 0.3) {
+      this._spawnDropItem(enemy.x, enemy.y);
     }
 
     let pts = Math.round(100 * this.effectiveScoreMult);
