@@ -667,13 +667,14 @@ export class Renderer {
     ctx.translate(item.x, item.y + bob);
 
     // 外枠グロー
-    ctx.shadowBlur  = 10;
-    ctx.shadowColor = item.kind === 'common' ? '#FFD700' : '#3498DB';
+    const borderColor = item.kind === 'common' ? '#FFD700' : '#5BC8FF';
+    ctx.shadowBlur  = 12;
+    ctx.shadowColor = borderColor;
 
-    // 背景矩形
-    ctx.fillStyle   = item.kind === 'common' ? '#FFD700' : '#3498DB';
-    ctx.strokeStyle = item.kind === 'common' ? '#E67E22' : '#1A6FA8';
-    ctx.lineWidth   = 2;
+    // 縁のみ（塗りなし）
+    ctx.fillStyle   = 'rgba(0,0,0,0.35)';
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth   = 2.5;
     ctx.beginPath();
     ctx.roundRect(-sz / 2, -sz / 2, sz, sz, 6);
     ctx.fill();

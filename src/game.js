@@ -300,13 +300,23 @@ export class GameManager {
     for (const def of this.pendingDefs)                   awardFor(def);
     for (const e of this.enemies) { if (e.alive && !e.exploding) awardFor(e); }
 
+    // 期待値ベースでアイテムをランダム付与
+    const allDefs = [...this.pendingDefs, ...this.enemies.filter(e => e.alive && !e.exploding)];
+    let expected = 0;
+    for (const d of allDefs) {
+      if (d.isMidBoss)                           expected += 0.5;
+      else if (d.enemyType === ENEMY_TYPE.LARGE) expected += 0.05;
+    }
+    const itemCount = Math.floor(expected) + (Math.random() < (expected % 1) ? 1 : 0);
+    for (let i = 0; i < itemCount; i++) this._spawnDropItem(CANVAS_W / 2, 0);
+
     // Clear everything and jump to skill shop
     this.enemies.forEach(e => { e.alive = false; });
     this.bullets.forEach(b => { b.alive = false; });
     this.lasers.forEach(l  => { l.alive = false; });
     this.pendingDefs = [];
     this.waveCleared = true;
-    this._onWaveCleared();
+    this._onWaveCleared();  // ← ここで items も強制収集される
   }
 
   update(dt) {
@@ -1023,7 +1033,7 @@ export class GameManager {
       this.bossDeathFlash = enemy.isUltraBoss ? 1.4 : 1.0;
     } else if (enemy.isMidBoss) {
       audio.playSfx(AUDIO.SFX_BOSS_KILL);
-      this._spawnDropItem(enemy.x, enemy.y + 20);  // 中ボス：固定ドロップ
+      if (Math.random() < 0.5) this._spawnDropItem(enemy.x, enemy.y + 20);  // 中ボス：50%
 
       // Mid-boss death burst — orange/gold, no enemy clear
       const midColors = ['#FF8C00', '#FFD700', '#FF4500', '#FFFFFF'];
@@ -1065,8 +1075,8 @@ export class GameManager {
       }
     }
 
-    // 大型雑魚：30% でドロップ（ボス系は別処理済み）
-    if (!enemy.isBoss && !enemy.isMidBoss && enemy.enemyType === ENEMY_TYPE.LARGE && Math.random() < 0.3) {
+    // 大型雑魚：5% でドロップ（ボス系は別処理済み）
+    if (!enemy.isBoss && !enemy.isMidBoss && enemy.enemyType === ENEMY_TYPE.LARGE && Math.random() < 0.05) {
       this._spawnDropItem(enemy.x, enemy.y);
     }
 
@@ -1126,6 +1136,10 @@ export class GameManager {
   }
 
   _onWaveCleared() {
+    // 画面上の残存アイテムを強制収集
+    for (const item of this.items) { if (item.alive) this._collectItem(item); }
+    this.items = [];
+
     // All 3 waves get a skill select; after wave 3 the shop leads to next stage
     this._generateSkillOffer();
     this.state = GameState.WAVE_RESULT;

@@ -184,7 +184,7 @@ export class DropItem {
     this.attribute = attribute;
     this.stat      = stat;
     this.alive     = true;
-    this.vy        = 55;                          // 落下速度 px/sec
+    this.vy        = 110;                         // 落下速度 px/sec
     this.bobTimer  = Math.random() * Math.PI * 2; // ふわふわ位相
   }
 
