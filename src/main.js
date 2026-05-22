@@ -37,7 +37,7 @@ function loop(now) {
       } else if (gm.state === GameState.WAVE_RESULT) {
         audio.playBgm(AUDIO.BGM_TITLE);
       } else if (gm.state === GameState.PLAYING) {
-        if (hasUltraBoss)       audio.playBgm(AUDIO.BGM_GRAND_BOSS);  // ultra boss reuses grand boss BGM
+        if (hasUltraBoss)       audio.playBgm(AUDIO.BGM_ULTRA_BOSS);
         else if (hasGrandBoss)  audio.playBgm(AUDIO.BGM_GRAND_BOSS);
         else if (hasNormalBoss) audio.playBgm(AUDIO.BGM_BOSS);
         else                    audio.playBgm(AUDIO.BGM_STAGE);

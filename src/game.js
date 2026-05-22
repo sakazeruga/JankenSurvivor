@@ -265,6 +265,7 @@ export class GameManager {
     this.bombFlash       = 0;
     this.bossDeathFlash  = 0;
     this.bossWarning     = 0;   // grand boss — red WARNING
+    this.ultraDanger     = 0;   // ultra boss — crimson DANGER
     this.cautionTimer    = 0;   // normal boss — yellow CAUTION
     this.waveCleared     = false;
     this._nextWaveIdx    = 0;
@@ -299,6 +300,7 @@ export class GameManager {
     this.bullets      = [];
     this.lasers       = [];
     this.bossWarning       = 0;
+    this.ultraDanger       = 0;
     this.cautionTimer      = 0;
     this.shieldInvincTimer = 0;
     this.shieldCTTimer     = 0;
@@ -370,6 +372,7 @@ export class GameManager {
     if (this.bombFlash      > 0) this.bombFlash      -= dt;
     if (this.bossDeathFlash > 0) this.bossDeathFlash -= dt * 1.8;
     if (this.bossWarning    > 0) this.bossWarning    -= dt;
+    if (this.ultraDanger   > 0) this.ultraDanger    -= dt;
     if (this.cautionTimer   > 0) this.cautionTimer   -= dt;
     if (this.shieldCTTimer  > 0) this.shieldCTTimer  -= dt;
     if (this.shieldInvincTimer > 0) {
@@ -392,7 +395,7 @@ export class GameManager {
 
       if (def.isBoss) {
         if (def.isUltraBoss) {
-          this.bossWarning = 3.5;
+          this.ultraDanger = 4.0;          // distinct DANGER display
           audio.playSfx(AUDIO.SFX_WARNING);
         } else if (def.isGrandBoss) {
           this.bossWarning = 2.5;
@@ -659,6 +662,7 @@ export class GameManager {
     boss.ultraCharging     = true;
     boss.ultraChargeTimer  = ULTRA_CHARGE_DURATION;
     boss.ultraChargeDamage = 0;
+    audio.playSfx(AUDIO.SFX_ULTRA_CHARGE);
   }
 
   _spawnUltraRushBoss(boss) {

@@ -116,6 +116,7 @@ export const AUDIO = {
   BGM_STAGE:      'assets/audio/StageBGM.mp3',
   BGM_BOSS:       'assets/audio/BossBGM.mp3',
   BGM_GRAND_BOSS: 'assets/audio/GrandBossBGM.mp3',
+  BGM_ULTRA_BOSS: 'assets/audio/HugeBossBGM.mp3',
   BGM_GAME_CLEAR: 'assets/audio/GameClearBGM.mp3',
   BGM_GAME_OVER:  'assets/audio/GameOverBGM.mp3',
   SFX_ROCK:       'assets/wav/UseRock.mp3',
@@ -127,6 +128,7 @@ export const AUDIO = {
   SFX_POWERUP:    'assets/wav/Powerup.mp3',
   SFX_SELECT:     'assets/wav/SelectDifficulty.mp3',
   SFX_START:      'assets/wav/Start_or_NextStage.mp3',
-  SFX_WARNING:    'assets/wav/Warning.mp3',
-  SFX_CAUTION:    'assets/wav/Caution.mp3',
+  SFX_WARNING:      'assets/wav/Warning.mp3',
+  SFX_CAUTION:      'assets/wav/Caution.mp3',
+  SFX_ULTRA_CHARGE: 'assets/wav/HugeBossCharge.mp3',
 };

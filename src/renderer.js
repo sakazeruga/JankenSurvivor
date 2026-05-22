@@ -205,40 +205,76 @@ export class Renderer {
       ctx.restore();
     }
 
-    // ── WARNING overlay (grand boss / ultra boss) — red, longer ─────────
+    // ── WARNING overlay (grand boss) — red ───────────────────────────────
     if ((gm.bossWarning || 0) > 0) {
-      const isUltra = (gm.enemies || []).some(e => e.isUltraBoss && e.alive && !e.exploding);
-      const t     = Date.now() / (isUltra ? 80 : 120);
+      const t     = Date.now() / 120;
       const pulse = 0.55 + 0.45 * Math.abs(Math.sin(t));
       const alpha = Math.min(1, gm.bossWarning) * pulse;
 
       ctx.save();
-      ctx.fillStyle = isUltra
-        ? `rgba(180,0,0,${alpha * 0.32})`
-        : `rgba(200,0,0,${alpha * 0.22})`;
+      ctx.fillStyle = `rgba(200,0,0,${alpha * 0.22})`;
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-      ctx.strokeStyle = isUltra
-        ? `rgba(255,0,0,${alpha})`
-        : `rgba(255,40,40,${alpha * 0.9})`;
-      ctx.lineWidth   = isUltra ? 12 : 8;
+      ctx.strokeStyle = `rgba(255,40,40,${alpha * 0.9})`;
+      ctx.lineWidth   = 8;
       ctx.strokeRect(4, 4, CANVAS_W - 8, CANVAS_H - 8);
 
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
       ctx.shadowColor  = '#FF0000';
-      ctx.shadowBlur   = isUltra ? 36 : 24;
+      ctx.shadowBlur   = 24;
 
-      ctx.fillStyle = `rgba(255,${isUltra ? 20 : 60},${isUltra ? 20 : 60},${alpha})`;
-      ctx.font      = `bold ${isUltra ? 52 : 58}px sans-serif`;
-      ctx.fillText(isUltra ? '⚠⚠ WARNING ⚠⚠' : '⚠ WARNING', CANVAS_W / 2, CANVAS_H / 2 - 40);
+      ctx.fillStyle = `rgba(255,60,60,${alpha})`;
+      ctx.font      = 'bold 58px sans-serif';
+      ctx.fillText('⚠ WARNING', CANVAS_W / 2, CANVAS_H / 2 - 40);
 
-      ctx.fillStyle = `rgba(255,${isUltra ? 160 : 200},${isUltra ? 160 : 200},${alpha * 0.9})`;
-      ctx.font      = `bold ${isUltra ? 17 : 20}px sans-serif`;
-      ctx.fillText(
-        isUltra ? '💀 ULTRA BOSS APPROACHING 💀' : 'GRAND BOSS APPROACHING',
-        CANVAS_W / 2, CANVAS_H / 2 + 14
-      );
+      ctx.fillStyle = `rgba(255,200,200,${alpha * 0.9})`;
+      ctx.font      = 'bold 20px sans-serif';
+      ctx.fillText('GRAND BOSS APPROACHING', CANVAS_W / 2, CANVAS_H / 2 + 14);
+
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    // ── DANGER overlay (ultra boss) — deep crimson, bolder ───────────────
+    if ((gm.ultraDanger || 0) > 0) {
+      const t     = Date.now() / 65;
+      const pulse = 0.5 + 0.5 * Math.abs(Math.sin(t));
+      const alpha = Math.min(1, gm.ultraDanger) * pulse;
+
+      ctx.save();
+      // Heavy red tint
+      ctx.fillStyle = `rgba(160,0,0,${alpha * 0.42})`;
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      // Double border — outer thin white, inner thick red
+      ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.6})`;
+      ctx.lineWidth   = 2;
+      ctx.strokeRect(2, 2, CANVAS_W - 4, CANVAS_H - 4);
+      ctx.strokeStyle = `rgba(255,0,0,${alpha})`;
+      ctx.lineWidth   = 14;
+      ctx.strokeRect(8, 8, CANVAS_W - 16, CANVAS_H - 16);
+
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Bold DANGER title
+      ctx.shadowColor = '#FF0000';
+      ctx.shadowBlur  = 44;
+      ctx.fillStyle   = `rgba(255,20,20,${alpha})`;
+      ctx.font        = 'bold 68px sans-serif';
+      ctx.fillText('💀 DANGER 💀', CANVAS_W / 2, CANVAS_H / 2 - 50);
+
+      // Sub-text
+      ctx.shadowBlur  = 18;
+      ctx.fillStyle   = `rgba(255,140,140,${alpha * 0.95})`;
+      ctx.font        = 'bold 18px sans-serif';
+      ctx.fillText('ULTRA BOSS APPROACHING', CANVAS_W / 2, CANVAS_H / 2 + 10);
+
+      ctx.shadowBlur  = 0;
+      ctx.fillStyle   = `rgba(255,80,80,${alpha * 0.7})`;
+      ctx.font        = '13px sans-serif';
+      ctx.fillText('全力で迎え撃て！', CANVAS_W / 2, CANVAS_H / 2 + 38);
 
       ctx.shadowBlur = 0;
       ctx.restore();
