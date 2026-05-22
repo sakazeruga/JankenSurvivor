@@ -1,7 +1,7 @@
-import { ENEMY_RADIUS, BOSS_RADIUS, GRAND_BOSS_RADIUS, MID_BOSS_RADIUS, ULTRA_BOSS_RADIUS, BULLET_RADIUS, CANVAS_W, ENEMY_TYPE_CONFIG } from './constants.js';
+import { ENEMY_RADIUS, BOSS_RADIUS, GRAND_BOSS_RADIUS, MID_BOSS_RADIUS, ULTRA_BOSS_RADIUS, LAST_BOSS_RADIUS, LAST_BOSS_P2_RADIUS, BULLET_RADIUS, CANVAS_W, ENEMY_TYPE_CONFIG } from './constants.js';
 
 export class Enemy {
-  constructor({ x, y, attribute, speed, hp = 1, isBoss = false, isGrandBoss = false, isMidBoss = false, isUltraBoss = false, isRushBoss = false, enemyType = 'NORMAL', drawImmune = false }) {
+  constructor({ x, y, attribute, speed, hp = 1, isBoss = false, isGrandBoss = false, isMidBoss = false, isUltraBoss = false, isRushBoss = false, isLastBoss = false, enemyType = 'NORMAL', drawImmune = false, chainImmune = false, isDummy = false, isErratic = false }) {
     this.x           = x;
     this.y           = y;
     this.attribute   = attribute;
@@ -12,10 +12,18 @@ export class Enemy {
     this.isGrandBoss = isGrandBoss;
     this.isMidBoss   = isMidBoss;
     this.isUltraBoss = isUltraBoss;
-    this.isRushBoss  = isRushBoss;
-    this.enemyType   = enemyType;
-    this.drawImmune  = drawImmune;
-    this.noShield    = false;  // when true, shield phase never cycles
+    this.isRushBoss   = isRushBoss;
+    this.isLastBoss   = isLastBoss;
+    this.enemyType    = enemyType;
+    this.drawImmune   = drawImmune;
+    this.chainImmune  = chainImmune;
+    this.isDummy      = isDummy;
+    this.isErratic    = isErratic;
+    this.erraticPhase = isErratic ? Math.random() * Math.PI * 2 : 0;
+    this.erraticTimer = 0;
+    this.lbTempUltra  = false;
+    this.lbTempTimer  = 0;
+    this.noShield     = false;  // when true, shield phase never cycles
 
     if (isBoss) {
       if (isUltraBoss) {
@@ -36,6 +44,29 @@ export class Enemy {
         this.ultraCharging       = false;
         this.ultraChargeTimer    = 0;
         this.ultraChargeDamage   = 0;
+      } else if (isLastBoss) {
+        // ── Last boss ─────────────────────────────────────────────────────
+        this.radius        = LAST_BOSS_RADIUS;
+        this.attrCycleTimer= 0;
+        this.lastBossPhase = 1;
+        // Phase 1 state
+        this.lbP1_90done   = false;
+        this.lbP1_40done   = false;
+        this.lbMinionTimer = 0;
+        this.lbSkillTimer  = 12.0;
+        this.lbSkillIdx    = 0;
+        this.lbRushQueue   = 0;
+        this.lbRushCT      = 0;
+        // Phase 2 state (initialized on transition)
+        this.lbP2_th         = null;
+        this.lbP2_lineQueue  = 0;
+        this.lbP2_lineCT     = 0;
+        this.lbP2_skillTimer = 0;
+        this.lbP2_skillIdx   = 0;
+        // Final phase
+        this.lbFinalPhase      = false;
+        this.lbFinalTimer      = 0;
+        this.lbFinalSkillTimer = 0;
       } else {
         // ── Grand boss / Normal boss ──────────────────────────────────────
         this.radius           = isGrandBoss ? GRAND_BOSS_RADIUS : BOSS_RADIUS;
@@ -74,6 +105,11 @@ export class Enemy {
     }
     if (!this.isBoss) {
       this.y += this.speed * dt;
+      if (this.isErratic) {
+        this.erraticTimer += dt;
+        const dx = Math.sin(this.erraticTimer * 4.5 + this.erraticPhase) * this.speed * 0.5;
+        this.x = Math.max(20, Math.min(CANVAS_W - 20, this.x + dx * dt));
+      }
     }
     // Bosses are stationary — no y movement
   }

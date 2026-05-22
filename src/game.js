@@ -3,12 +3,13 @@ import { Enemy, Bullet, Laser, Particle, DropItem } from './entities.js';
 import { generateStage } from './stage.js';
 import {
   ATTR, ALL_ATTRS, ATTR_COLOR, CHAIN_RADIUS, CHAIN_MAX_DEPTH,
-  KILL_LINE_Y, CANVAS_W, CANVAS_H,
+  KILL_LINE_Y, CANVAS_W, CANVAS_H, SPAWN_Y,
   DIFFICULTY, DIFFICULTY_CONFIG,
   INITIAL_SCORE, BASE_HIT_PENALTY, BOMBS_PER_STAGE,
   ATTR_COMMON_SKILLS, ATTR_RARE_SKILLS,
   UTIL_COMMON_SKILLS, UTIL_RARE_SKILLS,
-  ENEMY_TYPE,
+  ENEMY_TYPE, LAST_STAGE_IDX, LAST_BOSS_P2_RADIUS,
+  MID_BOSS_RADIUS,
   AUDIO,
 } from './constants.js';
 import { audio } from './audio.js';
@@ -16,6 +17,12 @@ import { audio } from './audio.js';
 const BOSS_ATTR_PERIOD        = 4.0;   // seconds between boss attribute changes
 const BOSS_SUMMON_PERIOD      = 1.17;  // seconds between normal-boss minion spawns
 const GRAND_BOSS_SKILL_PERIOD = 3.5;   // seconds between grand-boss skill uses
+
+// ── Last boss timers ───────────────────────────────────────────────────────
+const LB_MINION_PERIOD    = 0.30;   // constant minion spawn (phase 1)
+const LB_P1_SKILL_PERIOD  = 9.0;   // rotating skill interval (phase 1)
+const LB_P2_SKILL_PERIOD  = 12.0;  // rotating skill interval (phase 2)
+const LB_LINE_CHARGE_CT   = 2.5;   // default CD between line charges
 
 // ── Ultra boss timers ──────────────────────────────────────────────────────
 const ULTRA_MINION_PERIOD     = BOSS_SUMMON_PERIOD / 3; // 3× faster than normal boss (≈0.39 s)
@@ -169,7 +176,11 @@ export class GameManager {
   }
 
   // ── Drop item spawn ───────────────────────────────────────────────────────
-  _spawnDropItem(x, y) {
+  _spawnDropItem(x, y, kindOverride = null, attrOverride = null, statOverride = null) {
+    if (kindOverride) {
+      this.items.push(new DropItem(x, y, kindOverride, attrOverride, statOverride));
+      return;
+    }
     const isGeneral = Math.random() < 0.3;
     let kind, attribute = null, stat;
     if (isGeneral) {
@@ -348,6 +359,13 @@ export class GameManager {
     return this.scoreMultiplier * Math.pow(1.5, this.skills['util_score'] || 0);
   }
 
+  get lastBossState() {
+    const lb = this.enemies.find(e => e.isLastBoss && e.alive && !e.exploding);
+    if (!lb) return null;
+    if (lb.lbFinalPhase) return 'p3';
+    return lb.lastBossPhase === 1 ? 'p1' : 'p2';
+  }
+
   // ── Private: setup ───────────────────────────────────────────────────────
 
   _reset() {
@@ -385,6 +403,7 @@ export class GameManager {
     this.bombsUsed         = 0;
     this.freeBombs         = 0;
     this.items             = [];
+    this.buttonOrder       = [0, 1, 2];  // [0=ROCK,1=SCISSORS,2=PAPER] shuffled by last boss P2
   }
 
   _loadStage(index) {
@@ -501,7 +520,10 @@ export class GameManager {
       this.spawnTimer = this.spawnInterval;
 
       if (def.isBoss) {
-        if (def.isUltraBoss) {
+        if (def.isLastBoss) {
+          this.ultraDanger = 8.0;
+          audio.playSfx(AUDIO.SFX_WARNING);
+        } else if (def.isUltraBoss) {
           this.ultraDanger = 4.0;          // distinct DANGER display
           audio.playSfx(AUDIO.SFX_WARNING);
         } else if (def.isGrandBoss) {
@@ -584,6 +606,21 @@ export class GameManager {
 
     for (const boss of this.enemies) {
       if (!boss.isBoss || !boss.alive || boss.exploding) continue;
+
+      // ── Last boss: separate update path ──────────────────────────────────
+      if (boss.isLastBoss) {
+        if (boss.lastBossPhase === 1) this._updateLastBossP1(boss, dt);
+        else                          this._updateLastBossP2(boss, dt);
+        continue;
+      }
+
+      // ── Temp ultra boss spawned by last boss P2 ───────────────────────────
+      if (boss.lbTempUltra) {
+        boss.lbTempTimer -= dt;
+        if (boss.lbTempTimer <= 0) { this._destroyEnemy(boss); }
+        else                        { this._updateUltraBoss(boss, dt, shieldPhaseDur); }
+        continue;
+      }
 
       // ── Ultra boss: separate update path ─────────────────────────────────
       if (boss.isUltraBoss) {
@@ -703,6 +740,391 @@ export class GameManager {
         if (boss.ultraAbsorbTimer <= 0) {
           boss.ultraAbsorbActive = false;
         }
+      }
+    }
+  }
+
+  // ── Last boss: Phase 1 update ─────────────────────────────────────────────
+
+  _updateLastBossP1(boss, dt) {
+    const hpRatio = boss.hp / boss.maxHp;
+
+    // Attribute cycle
+    boss.attrCycleTimer += dt;
+    if (boss.attrCycleTimer >= BOSS_ATTR_PERIOD) {
+      boss.attrCycleTimer = 0;
+      const others = ALL_ATTRS.filter(a => a !== boss.attribute);
+      boss.attribute = others[Math.floor(Math.random() * others.length)];
+      this._spawnHitParticles(boss.x, boss.y, '#FF2200', 16);
+    }
+
+    // Fixed: 2 bosses at HP ≤ 90% (once)
+    if (!boss.lbP1_90done && hpRatio <= 0.90) {
+      boss.lbP1_90done = true;
+      this._lbSummon2Bosses(boss);
+    }
+    // Fixed: 2 bosses at HP ≤ 40% (once)
+    if (!boss.lbP1_40done && hpRatio <= 0.40) {
+      boss.lbP1_40done = true;
+      this._lbSummon2Bosses(boss);
+    }
+
+    // Continuous fast minion spawn
+    boss.lbMinionTimer -= dt;
+    if (boss.lbMinionTimer <= 0) {
+      boss.lbMinionTimer = LB_MINION_PERIOD;
+      this._spawnBossMinion(boss);
+    }
+
+    // Rush charge queue (queued by skill idx=3 at HP≤75%)
+    if (boss.lbRushQueue > 0) {
+      boss.lbRushCT -= dt;
+      if (boss.lbRushCT <= 0) {
+        boss.lbRushQueue--;
+        boss.lbRushCT = 3.0;
+        this._lbSpawnRushMidBoss(boss);
+      }
+    }
+
+    // Rotating skills
+    boss.lbSkillTimer -= dt;
+    if (boss.lbSkillTimer <= 0) {
+      boss.lbSkillTimer = LB_P1_SKILL_PERIOD;
+      this._executeLbP1Skill(boss, hpRatio);
+    }
+  }
+
+  // ── Last boss: Phase 2 update ─────────────────────────────────────────────
+
+  _updateLastBossP2(boss, dt) {
+    // Final phase: count down to self-destruct
+    if (boss.lbFinalPhase) {
+      boss.lbFinalTimer -= dt;
+      boss.lbFinalSkillTimer -= dt;
+      if (boss.lbFinalSkillTimer <= 0) {
+        const shieldDur = 0.8 + 0.2 * this.shieldCharges;
+        boss.lbFinalSkillTimer = Math.max(1.5, 5.0 - shieldDur) + 0.5 + Math.random() * 0.5;
+        this._lbSpawnLineCharge();
+        // Drop battery item
+        this._spawnDropItem(boss.x, boss.y + 20, 'general', null, 'battery');
+      }
+      if (boss.lbFinalTimer <= 0) {
+        this._destroyEnemy(boss);
+      }
+      return;
+    }
+
+    const hpRatio = boss.hp / boss.maxHp;
+
+    // Check 5% → final phase
+    if (hpRatio <= 0.05) {
+      this._lastBossFinalPhase(boss);
+      return;
+    }
+
+    // Attribute cycle
+    boss.attrCycleTimer += dt;
+    if (boss.attrCycleTimer >= BOSS_ATTR_PERIOD) {
+      boss.attrCycleTimer = 0;
+      const others = ALL_ATTRS.filter(a => a !== boss.attribute);
+      boss.attribute = others[Math.floor(Math.random() * others.length)];
+    }
+
+    // Fixed threshold: mid-boss line charges at 80/60/40/20%
+    const th = boss.lbP2_th;
+    if (!th.t80 && hpRatio <= 0.80) { th.t80 = true; boss.lbP2_lineQueue += 1; }
+    if (!th.t60 && hpRatio <= 0.60) { th.t60 = true; boss.lbP2_lineQueue += 1; }
+    if (!th.t40 && hpRatio <= 0.40) { th.t40 = true; boss.lbP2_lineQueue += 2; }
+    if (!th.t20 && hpRatio <= 0.20) { th.t20 = true; boss.lbP2_lineQueue += 3; }
+
+    boss.lbP2_lineCT -= dt;
+    if (boss.lbP2_lineQueue > 0 && boss.lbP2_lineCT <= 0) {
+      boss.lbP2_lineQueue--;
+      boss.lbP2_lineCT = th.t20 ? 2.0 : LB_LINE_CHARGE_CT;
+      this._lbSpawnLineCharge();
+    }
+
+    // Rotating skills (faster at HP≤40%)
+    const skillPeriod = hpRatio <= 0.40 ? LB_P2_SKILL_PERIOD * 0.67 : LB_P2_SKILL_PERIOD;
+    boss.lbP2_skillTimer -= dt;
+    if (boss.lbP2_skillTimer <= 0) {
+      boss.lbP2_skillTimer = skillPeriod;
+      this._executeLbP2Skill(boss, hpRatio);
+    }
+  }
+
+  // ── Last boss: Phase 1 → 2 transition ────────────────────────────────────
+
+  _lastBossPhase2Transition(boss) {
+    const bossExp  = 5 + (LAST_STAGE_IDX - 5) * 0.6;
+    const ultraHpBase = Math.round(20 * Math.pow(2, bossExp) * 9);
+    const p2Hp    = Math.round(ultraHpBase * 3);
+
+    boss.lastBossPhase = 2;
+    boss.hp            = p2Hp;
+    boss.maxHp         = p2Hp;
+    boss.radius        = LAST_BOSS_P2_RADIUS;
+    boss.lbP2_th         = { t80: false, t60: false, t40: false, t20: false };
+    boss.lbP2_lineQueue  = 0;
+    boss.lbP2_lineCT     = 0;
+    boss.lbP2_skillTimer = 10.0;
+    boss.lbP2_skillIdx   = 0;
+    boss.attrCycleTimer  = 0;
+
+    // Visual effects
+    const cols = ['#FF0000', '#FF8800', '#FFFF00', '#FF00FF', '#FFFFFF'];
+    for (const c of cols) {
+      for (let i = 0; i < 28; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 280 + Math.random() * 420;
+        this.particles.push(new Particle({ x: boss.x, y: boss.y, color: c,
+          radius: 7 + Math.random() * 12,
+          vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 150,
+          life: 0.7 + Math.random() * 0.9 }));
+      }
+    }
+    this.bossDeathRings = [
+      { x: boss.x, y: boss.y, maxRadius: 480, life: 2.0, maxLife: 2.0, color: '#FF0000' },
+      { x: boss.x, y: boss.y, maxRadius: 360, life: 1.6, maxLife: 1.6, color: '#FF8800' },
+      { x: boss.x, y: boss.y, maxRadius: 260, life: 1.2, maxLife: 1.2, color: '#FFD700' },
+    ];
+    this.bossDeathFlash = 2.2;
+    audio.playSfx(AUDIO.SFX_BOSS_KILL);
+
+    // Clear non-boss enemies on transition
+    for (const e of this.enemies) {
+      if (e !== boss && e.alive && !e.exploding && !e.isBoss) {
+        e.triggerExplosion();
+        this._spawnExplosionParticles(e.x, e.y, ATTR_COLOR[e.attribute]);
+      }
+    }
+  }
+
+  // ── Last boss: Phase 2 → Final Phase ─────────────────────────────────────
+
+  _lastBossFinalPhase(boss) {
+    boss.lbFinalPhase = true;
+    boss.lbFinalTimer = 40.0;
+    boss.hp           = 0;
+    const shieldDur   = 0.8 + 0.2 * this.shieldCharges;
+    boss.lbFinalSkillTimer = Math.max(1.5, 5.0 - shieldDur) + 0.5 + Math.random() * 0.5;
+
+    this.bossDeathFlash = 1.8;
+    this.bossDeathRings = [
+      { x: boss.x, y: boss.y, maxRadius: 320, life: 1.4, maxLife: 1.4, color: '#FF0000' },
+      { x: boss.x, y: boss.y, maxRadius: 220, life: 1.1, maxLife: 1.1, color: '#FF00FF' },
+      { x: boss.x, y: boss.y, maxRadius: 140, life: 0.8, maxLife: 0.8, color: '#FFFFFF' },
+    ];
+    // Clear all non-boss enemies
+    for (const e of this.enemies) {
+      if (e !== boss && e.alive && !e.exploding && !e.isBoss) {
+        e.triggerExplosion();
+        this._spawnExplosionParticles(e.x, e.y, ATTR_COLOR[e.attribute]);
+      }
+    }
+  }
+
+  // ── Last boss: helpers ────────────────────────────────────────────────────
+
+  _lbSummon2Bosses(boss) {
+    const bossExp     = 5 + (LAST_STAGE_IDX - 5) * 0.6;
+    const normalBossHp = Math.round(20 * Math.pow(2, bossExp));
+    const positions   = [CANVAS_W * 0.22, CANVAS_W * 0.78];
+    for (const bx of positions) {
+      const e = new Enemy({
+        x: bx, y: boss.y + boss.radius + 50,
+        attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+        speed: 0, hp: normalBossHp, isBoss: true,
+      });
+      e.bossShieldPhase = 0;
+      e.noShield        = true;
+      e.summonTimer     = 0;
+      this.enemies.push(e);
+    }
+    this.cautionTimer = 1.8;
+    audio.playSfx(AUDIO.SFX_CAUTION);
+  }
+
+  _lbSpawnRushMidBoss(boss) {
+    const bossExp  = 5 + (LAST_STAGE_IDX - 5) * 0.6;
+    const midHp    = Math.round(10 * Math.pow(2, bossExp));
+    this.enemies.push(new Enemy({
+      x: boss.x + (Math.random() - 0.5) * 60,
+      y: boss.y + boss.radius + 30,
+      attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+      speed: 190 * this.speedMultiplier,
+      hp: Math.max(1, Math.round(midHp * 0.8)),
+      isMidBoss: true, isRushBoss: true, drawImmune: true,
+    }));
+  }
+
+  _lbSpawnLineCharge() {
+    const bossExp  = 5 + (LAST_STAGE_IDX - 5) * 0.6;
+    const midHp    = Math.round(10 * Math.pow(2, bossExp));
+    const count    = 5;
+    for (let i = 0; i < count; i++) {
+      const x = CANVAS_W * (i + 0.5) / count;
+      this.enemies.push(new Enemy({
+        x, y: SPAWN_Y,
+        attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+        speed: 220 * this.speedMultiplier,
+        hp: Math.max(1, Math.round(midHp * 0.25)),
+        isMidBoss: true, drawImmune: true,
+      }));
+    }
+    audio.playSfx(AUDIO.SFX_CAUTION);
+  }
+
+  _executeLbP1Skill(boss, hpRatio) {
+    const milestones = Math.min(3, Math.floor((1 - hpRatio) / 0.25));
+    const stageMult  = LAST_STAGE_IDX / 3 + 1;  // 4
+    const speed      = Math.min(1.0 + 0.10 * LAST_STAGE_IDX, 4.5) * 60;
+    const yMin = boss.y + 70;
+    const yMax = Math.min(CANVAS_H * 0.55, KILL_LINE_Y - 100);
+
+    let idx = boss.lbSkillIdx;
+    // Skip rush skill (3) if HP > 75%
+    if (idx === 3 && hpRatio > 0.75) { idx = 0; boss.lbSkillIdx = 0; }
+
+    if (idx === 0) {
+      const n = 20 + 4 * milestones;
+      for (let i = 0; i < n; i++) {
+        const x = 36 + Math.random() * (CANVAS_W - 72);
+        const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
+        this.enemies.push(new Enemy({ x, y,
+          attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+          speed: speed * 0.9 * this.speedMultiplier,
+          hp: Math.max(1, Math.round(stageMult)) }));
+      }
+    } else if (idx === 1) {
+      const n = 10 + 2 * milestones;
+      for (let i = 0; i < n; i++) {
+        const x = 36 + Math.random() * (CANVAS_W - 72);
+        const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
+        this.enemies.push(new Enemy({ x, y,
+          attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+          speed: speed * 0.75 * this.speedMultiplier,
+          hp: Math.max(1, Math.round(stageMult * 2)),
+          enemyType: ENEMY_TYPE.MEDIUM }));
+      }
+    } else if (idx === 2) {
+      const n = 5 + milestones;
+      for (let i = 0; i < n; i++) {
+        const x = 36 + Math.random() * (CANVAS_W - 72);
+        const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
+        this.enemies.push(new Enemy({ x, y,
+          attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+          speed: speed * 0.6 * this.speedMultiplier,
+          hp: Math.max(1, Math.round(stageMult * 5)),
+          enemyType: ENEMY_TYPE.LARGE }));
+      }
+    } else {
+      // Skill 3: charging mid-boss (HP≤75%)
+      const count = hpRatio <= 0.25 ? 2 : 1;
+      boss.lbRushQueue += count;
+      boss.lbRushCT     = 0;  // fire first one immediately
+    }
+    boss.lbSkillIdx = (idx + 1) % 4;
+  }
+
+  _executeLbP2Skill(boss, hpRatio) {
+    const bossExp   = 5 + (LAST_STAGE_IDX - 5) * 0.6;
+    const stageMult = LAST_STAGE_IDX / 3 + 1;
+    const speed     = Math.min(1.0 + 0.10 * LAST_STAGE_IDX, 4.5) * 60;
+    const yMin = boss.y + 80;
+    const yMax = Math.min(CANVAS_H * 0.60, KILL_LINE_Y - 100);
+
+    const idx = boss.lbP2_skillIdx;
+    boss.lbP2_skillIdx = (idx + 1) % 6;
+
+    if (idx === 0) {
+      // 超ボス召喚（8s後爆死）
+      const ultraHp   = Math.round(20 * Math.pow(2, bossExp) * 9);
+      const ultraCount = hpRatio <= 0.30 ? 3 : hpRatio <= 0.60 ? 2 : 1;
+      for (let i = 0; i < ultraCount; i++) {
+        const xOff = (i - Math.floor(ultraCount / 2)) * 100;
+        const e = new Enemy({
+          x: CANVAS_W / 2 + xOff, y: boss.y + boss.radius + 70,
+          attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+          speed: 0, hp: ultraHp, isBoss: true, isUltraBoss: true,
+        });
+        e.noShield    = true;
+        e.lbTempUltra = true;
+        e.lbTempTimer = 8.0;
+        this.enemies.push(e);
+      }
+      this.cautionTimer = 1.8;
+      audio.playSfx(AUDIO.SFX_WARNING);
+
+    } else if (idx === 1) {
+      // 通常ボス召喚（有限HP）
+      const bossHp    = Math.round(20 * Math.pow(2, bossExp));
+      const bossCount = hpRatio <= 0.40 ? 2 : 1;
+      for (let i = 0; i < bossCount; i++) {
+        const xPos = bossCount === 1 ? CANVAS_W / 2 : CANVAS_W * (i === 0 ? 0.3 : 0.7);
+        const e = new Enemy({
+          x: xPos, y: boss.y + boss.radius + 60,
+          attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+          speed: 0, hp: bossHp, isBoss: true,
+        });
+        e.noShield = true;
+        e.summonTimer = 0;
+        this.enemies.push(e);
+      }
+      audio.playSfx(AUDIO.SFX_CAUTION);
+
+    } else if (idx === 2) {
+      // ボタンシャッフル
+      const order = [0, 1, 2];
+      for (let i = 2; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+      this.buttonOrder = order;
+      audio.playSfx(AUDIO.SFX_POWERUP);
+
+    } else if (idx === 3) {
+      // 誘爆&あいこ無効雑魚（HP≤40%で中型化）
+      const heavy = hpRatio <= 0.40;
+      const count = 12;
+      const etype = heavy ? ENEMY_TYPE.MEDIUM : ENEMY_TYPE.NORMAL;
+      const hp    = Math.max(1, Math.round(stageMult * (heavy ? 2 : 1)));
+      for (let i = 0; i < count; i++) {
+        const x = 36 + Math.random() * (CANVAS_W - 72);
+        const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
+        this.enemies.push(new Enemy({ x, y,
+          attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+          speed: (heavy ? 38 : 52) * this.speedMultiplier,
+          hp, enemyType: etype, drawImmune: true, chainImmune: true }));
+      }
+
+    } else if (idx === 4) {
+      // 大型ダミー敵（4体）
+      const midHp = Math.round(10 * Math.pow(2, bossExp));
+      const count = 4;
+      for (let i = 0; i < count; i++) {
+        const x = 36 + Math.random() * (CANVAS_W - 72);
+        const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
+        this.enemies.push(new Enemy({ x, y,
+          attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+          speed: 45 * this.speedMultiplier,
+          hp: Math.max(1, Math.round(midHp * 0.15)),
+          enemyType: ENEMY_TYPE.LARGE, isDummy: true }));
+      }
+
+    } else {
+      // 変速軌道雑魚（HP≤40%で中型化）
+      const heavy = hpRatio <= 0.40;
+      const count = 12;
+      const etype = heavy ? ENEMY_TYPE.MEDIUM : ENEMY_TYPE.NORMAL;
+      const hp    = Math.max(1, Math.round(stageMult * (heavy ? 2 : 1)));
+      for (let i = 0; i < count; i++) {
+        const x = 36 + Math.random() * (CANVAS_W - 72);
+        const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
+        this.enemies.push(new Enemy({ x, y,
+          attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+          speed: (heavy ? 42 : 58) * this.speedMultiplier,
+          hp, enemyType: etype, isErratic: true }));
       }
     }
   }
@@ -887,8 +1309,13 @@ export class GameManager {
 
   _handleJudgment(result, bullet, enemy) {
     const power        = this._getAttackPower(bullet.attribute);
-    // Pierce and split bullets bypass the ultra-boss absorption barrier
     const bypassAbsorb = bullet.isPierce || bullet.isSplit;
+
+    // Dummy enemies always absorb bullets (always take WIN damage)
+    if (enemy.isDummy) {
+      this._applyDamage(enemy, Math.max(1, Math.round(2 * power)), bullet.attribute, true);
+      return;
+    }
 
     if (bullet.isPierce) {
       // Speed level also boosts pierce damage (+60% per level, same as attack power)
@@ -914,6 +1341,45 @@ export class GameManager {
   }
 
   _applyDamage(enemy, dmg, attackAttr, bypassAbsorb = false) {
+    // Last boss special handling
+    if (enemy.isLastBoss) {
+      if (enemy.lbFinalPhase) return; // invincible in final phase
+      if (enemy.lbTempUltra)  return; // shouldn't happen, but guard
+
+      if (enemy.lastBossPhase === 1 && !bypassAbsorb) {
+        // Always-on absorb barrier: heals instead of taking damage
+        const mult = (enemy.hp / enemy.maxHp <= 0.5) ? 2.0 : 1.0;
+        enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.ceil(dmg * mult));
+        this._spawnHitParticles(enemy.x, enemy.y, '#00FF88', 7);
+        return;
+      }
+      // Apply damage (pierce/split bypass in p1, or p2)
+      enemy.hp -= dmg;
+      if (enemy.hp <= 0) {
+        if (enemy.lastBossPhase === 1) {
+          enemy.hp = 1;
+          this._lastBossPhase2Transition(enemy);
+        } else {
+          enemy.hp = 1;
+          this._lastBossFinalPhase(enemy);
+        }
+        return;
+      }
+      // Phase 2: 5% check
+      if (enemy.lastBossPhase === 2 && !enemy.lbFinalPhase && enemy.hp <= enemy.maxHp * 0.05) {
+        this._lastBossFinalPhase(enemy);
+        return;
+      }
+      this._spawnHitParticles(enemy.x, enemy.y, attackAttr ? ATTR_COLOR[attackAttr] : '#FFFFFF', 5);
+      return;
+    }
+
+    // Temp ultra boss (summoned by last boss P2): infinite HP
+    if (enemy.lbTempUltra) {
+      this._spawnHitParticles(enemy.x, enemy.y, '#00FF00', 4);
+      return;
+    }
+
     if (enemy.isUltraBoss) {
       // Charging: accumulate damage into the rush-boss pre-damage pool
       if (enemy.ultraCharging) {
@@ -1057,6 +1523,7 @@ export class GameManager {
     const srcTier   = this._blastTier(enemy);
     for (const t of this.enemies) {
       if (t === enemy || !t.alive || t.exploding) continue;
+      if (t.chainImmune) continue;
       if (this._blastTier(t) > srcTier) continue; // 自分より強い敵は安全
       const dx = t.x - enemy.x;
       const dy = t.y - enemy.y;
@@ -1071,13 +1538,15 @@ export class GameManager {
     }
 
     let pts = Math.round(100 * this.effectiveScoreMult);
-    if (enemy.isBoss)          pts = Math.round(pts * (enemy.isUltraBoss ? 10 : enemy.isGrandBoss ? 5 : 2));
+    if (enemy.isLastBoss)      pts = Math.round(pts * (enemy.lastBossPhase === 2 ? 100 : 50));
+    else if (enemy.isBoss)     pts = Math.round(pts * (enemy.isUltraBoss ? 10 : enemy.isGrandBoss ? 5 : 2));
     else if (enemy.isRushBoss) pts = Math.round(pts * 9);  // 3× mid-boss score
     else if (enemy.isMidBoss)  pts = Math.round(pts * 3);
     this.score += pts;
   }
 
   _onEnemyEscaped(enemy) {
+    if (enemy.isDummy) return; // ダミー敵は素通りしてもペナルティなし
     const stageMult = this.stageIndex / 3 + 1;
     const diffMult  = DIFFICULTY_CONFIG[this.difficulty].damageMult;
     const typeMult  = enemy.isBoss    ? 3
@@ -1123,6 +1592,7 @@ export class GameManager {
     // 画面上の残存アイテムを強制収集
     for (const item of this.items) { if (item.alive) this._collectItem(item); }
     this.items = [];
+    this.buttonOrder = [0, 1, 2]; // ボタンシャッフルをリセット
 
     // All 3 waves get a skill select; after wave 3 the shop leads to next stage
     this._generateSkillOffer();
@@ -1133,8 +1603,9 @@ export class GameManager {
 
   // ── Private: laser hit test ──────────────────────────────────────────────
 
-  // 誘爆強さ階層: NORMAL(0) < MEDIUM(1) < LARGE(2) < 中ボス(3) < 通常ボス(4) < 大ボス(5) < 超大ボス(6)
+  // 誘爆強さ階層: NORMAL(0) < MEDIUM(1) < LARGE(2) < 中ボス(3) < 通常ボス(4) < 大ボス(5) < 超大ボス(6) < ラストボス(7)
   _blastTier(enemy) {
+    if (enemy.isLastBoss)                           return 7;
     if (enemy.isUltraBoss)                          return 6;
     if (enemy.isGrandBoss)                          return 5;
     if (enemy.isBoss)                               return 4;

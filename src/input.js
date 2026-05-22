@@ -137,7 +137,7 @@ export function setupInput(canvas, gm, renderer) {
       }
 
       const idx = renderer.getButtonIndex(x, y);
-      if (idx >= 0) gm.fireBullet(BTN_ATTRS[idx]);
+      if (idx >= 0) gm.fireBullet(BTN_ATTRS[(gm.buttonOrder || [0, 1, 2])[idx]]);
     }
   }
 

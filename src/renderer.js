@@ -1,7 +1,7 @@
 import {
   CANVAS_W, CANVAS_H, BTN_AREA_H, KILL_LINE_Y,
   ATTR, ALL_ATTRS, ATTR_COLOR, ATTR_SYMBOL, ATTR_LABEL,
-  COLORS, ENEMY_RADIUS,
+  COLORS, ENEMY_RADIUS, LAST_STAGE_IDX,
   DIFFICULTY, DIFFICULTY_CONFIG,
   BASE_HIT_PENALTY, VERSION,
 } from './constants.js';
@@ -272,7 +272,7 @@ export class Renderer {
       ctx.shadowBlur  = 18;
       ctx.fillStyle   = `rgba(255,140,140,${alpha * 0.95})`;
       ctx.font        = 'bold 18px sans-serif';
-      ctx.fillText('ULTRA BOSS APPROACHING', CANVAS_W / 2, CANVAS_H / 2 + 10);
+      ctx.fillText(gm.stageIndex === LAST_STAGE_IDX ? 'LAST BOSS APPROACHING' : 'ULTRA BOSS APPROACHING', CANVAS_W / 2, CANVAS_H / 2 + 10);
 
       ctx.shadowBlur  = 0;
       ctx.fillStyle   = `rgba(255,80,80,${alpha * 0.7})`;
@@ -280,6 +280,26 @@ export class Renderer {
       ctx.fillText('全力で迎え撃て！', CANVAS_W / 2, CANVAS_H / 2 + 38);
 
       ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    // ── Final phase countdown (last boss) ────────────────────────────────
+    const _lb = gm.enemies?.find(e => e.isLastBoss && e.alive && !e.exploding);
+    if (_lb?.lbFinalPhase) {
+      const _rem    = Math.max(0, 40 - (_lb.lbFinalTimer || 0));
+      const _urgent = _rem <= 10;
+      const _pulse  = 0.5 + 0.5 * Math.abs(Math.sin(Date.now() / (_urgent ? 150 : 300)));
+      ctx.save();
+      ctx.fillStyle    = `rgba(0,0,0,${0.5 + 0.2 * _pulse})`;
+      ctx.fillRect(60, CANVAS_H / 2 - 34, CANVAS_W - 120, 48);
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor  = _urgent ? '#FF0000' : '#FF8800';
+      ctx.shadowBlur   = 20;
+      ctx.fillStyle    = _urgent ? `rgba(255,50,50,${_pulse})` : `rgba(255,160,0,${_pulse})`;
+      ctx.font         = `bold ${_urgent ? 26 : 22}px sans-serif`;
+      ctx.fillText(`☠ FINAL PHASE  残り ${Math.ceil(_rem)}s`, CANVAS_W / 2, CANVAS_H / 2 - 10);
+      ctx.shadowBlur   = 0;
       ctx.restore();
     }
   }
@@ -348,7 +368,7 @@ export class Renderer {
   _drawEnemy(enemy) {
     const { ctx } = this;
     const { x, y, radius, attribute, scale, alpha, exploding, hp, maxHp,
-            isBoss, isGrandBoss, isUltraBoss, isMidBoss, isRushBoss,
+            isBoss, isGrandBoss, isUltraBoss, isLastBoss, isMidBoss, isRushBoss,
             enemyType, drawImmune } = enemy;
     const color = ATTR_COLOR[attribute];
 
@@ -359,14 +379,19 @@ export class Renderer {
 
     // ── Aura ──────────────────────────────────────────────────────────────
     if (isBoss) {
-      const speed = isUltraBoss ? 250 : isGrandBoss ? 400 : 600;
+      const speed = isLastBoss ? (enemy.lbFinalPhase ? 150 : 220)
+                  : isUltraBoss ? 250 : isGrandBoss ? 400 : 600;
       const t     = Date.now() / speed;
       const pulse = 0.7 + 0.3 * Math.sin(t);
-      const auraR = radius * (isUltraBoss ? 3.8 : isGrandBoss ? 3.2 : 2.8);
+      const auraR = radius * (isLastBoss ? 2.4 : isUltraBoss ? 3.8 : isGrandBoss ? 3.2 : 2.8);
       const grad2 = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, auraR);
 
       let auraColor;
-      if (isUltraBoss) {
+      if (isLastBoss) {
+        auraColor = enemy.lbFinalPhase ? '#000000'
+                  : enemy.lastBossPhase === 2 ? '#7700AA'
+                  : '#8B0000';
+      } else if (isUltraBoss) {
         auraColor = enemy.ultraCharging   ? '#FF8800'
                   : enemy.ultraAbsorbActive ? '#00CC55'
                   : '#AA0000';
@@ -419,7 +444,33 @@ export class Renderer {
     ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill();
 
     // ── Rings & shields ───────────────────────────────────────────────────
-    if (isBoss && isUltraBoss) {
+    if (isBoss && isLastBoss) {
+      if (!exploding) {
+        if (enemy.lbFinalPhase) {
+          ctx.strokeStyle = '#330000'; ctx.lineWidth = 8;
+          ctx.beginPath(); ctx.arc(0, 0, radius + 8, 0, Math.PI * 2); ctx.stroke();
+        } else if (enemy.lastBossPhase === 1) {
+          const lb1rings = ['#8B0000', '#6B0000', '#3B0000'];
+          for (let r = 0; r < 3; r++) {
+            ctx.strokeStyle = lb1rings[r]; ctx.lineWidth = 5 - r;
+            ctx.beginPath(); ctx.arc(0, 0, radius + 5 + r * 10, 0, Math.PI * 2); ctx.stroke();
+          }
+          const t2 = Date.now() / 180;
+          const pu2 = 0.55 + 0.45 * Math.abs(Math.sin(t2));
+          const sr  = radius + 36;
+          ctx.strokeStyle = `rgba(180,0,0,${pu2})`; ctx.lineWidth = 8;
+          ctx.beginPath(); ctx.arc(0, 0, sr, 0, Math.PI * 2); ctx.stroke();
+          ctx.strokeStyle = `rgba(255,60,60,${pu2 * 0.4})`; ctx.lineWidth = 18;
+          ctx.beginPath(); ctx.arc(0, 0, sr + 6, 0, Math.PI * 2); ctx.stroke();
+        } else {
+          const lb2rings = ['#9B00FF', '#7700CC', '#550088'];
+          for (let r = 0; r < 3; r++) {
+            ctx.strokeStyle = lb2rings[r]; ctx.lineWidth = 4 - r;
+            ctx.beginPath(); ctx.arc(0, 0, radius + 4 + r * 8, 0, Math.PI * 2); ctx.stroke();
+          }
+        }
+      }
+    } else if (isBoss && isUltraBoss) {
       // Ultra boss: triple crimson ring
       const ringColors = ['#FF0000', '#CC0000', '#880000'];
       for (let r = 0; r < 3; r++) {
@@ -514,9 +565,17 @@ export class Renderer {
 
     // ── Crown / badge ─────────────────────────────────────────────────────
     if (isBoss && !exploding) {
-      const crownCount = isUltraBoss ? 3 : isGrandBoss ? 2 : 1;
-      ctx.font = `${radius * (isUltraBoss ? 0.52 : 0.65)}px sans-serif`;
-      ctx.fillText('👑'.repeat(crownCount), 0, -radius - (isUltraBoss ? 18 : 14));
+      if (isLastBoss) {
+        ctx.font = `${Math.max(14, radius * 0.38)}px sans-serif`;
+        const badge = enemy.lbFinalPhase ? '💀💀💀'
+                    : enemy.lastBossPhase === 2 ? '💀💀'
+                    : '💀👑💀';
+        ctx.fillText(badge, 0, -radius - (enemy.lastBossPhase === 1 ? 20 : 14));
+      } else {
+        const crownCount = isUltraBoss ? 3 : isGrandBoss ? 2 : 1;
+        ctx.font = `${radius * (isUltraBoss ? 0.52 : 0.65)}px sans-serif`;
+        ctx.fillText('👑'.repeat(crownCount), 0, -radius - (isUltraBoss ? 18 : 14));
+      }
     }
 
     if (isMidBoss && !exploding) {
@@ -532,9 +591,19 @@ export class Renderer {
 
     // ── Status text ───────────────────────────────────────────────────────
     if (isBoss && !exploding) {
-      const statusY = radius + (isUltraBoss ? 40 : isGrandBoss ? 30 : 24);
+      const statusY = radius + (isLastBoss ? (enemy.lastBossPhase === 1 ? 50 : 30)
+                               : isUltraBoss ? 40 : isGrandBoss ? 30 : 24);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      if (isUltraBoss) {
+      if (isLastBoss) {
+        if (enemy.lbFinalPhase) {
+          const remaining = Math.max(0, 40 - (enemy.lbFinalTimer || 0));
+          ctx.fillStyle = '#FF2200'; ctx.font = 'bold 13px sans-serif';
+          ctx.fillText(`☠ FINAL  残り${Math.ceil(remaining)}s`, 0, statusY);
+        } else if (enemy.lastBossPhase === 1) {
+          ctx.fillStyle = '#FF4444'; ctx.font = 'bold 12px sans-serif';
+          ctx.fillText('⊗ ABSORB BARRIER', 0, statusY);
+        }
+      } else if (isUltraBoss) {
         if (enemy.ultraCharging) {
           ctx.fillStyle = '#FFB020'; ctx.font = 'bold 12px sans-serif';
           ctx.fillText('⚡ CHARGE', 0, statusY);
@@ -559,13 +628,14 @@ export class Renderer {
     }
 
     // ── HP bar ────────────────────────────────────────────────────────────
-    if (!exploding && maxHp > 1) {
+    if (!exploding && maxHp > 1 && !(isLastBoss && enemy.lbFinalPhase)) {
       const bw = radius * (isBoss ? 2.4 : isMidBoss ? 2.0 : 1.8);
       const bh = (isBoss || isMidBoss) ? 7 : 5;
       const bx = -bw / 2;
-      const by = radius + (isBoss && isUltraBoss ? 24 : 8);
+      const by = radius + (isBoss && (isUltraBoss || isLastBoss) ? 24 : 8);
       ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, bh);
-      const barColor = isUltraBoss ? '#CC0000'
+      const barColor = isLastBoss ? (enemy.lastBossPhase === 1 ? '#8B0000' : '#9B00FF')
+        : isUltraBoss ? '#CC0000'
         : isBoss ? (isGrandBoss ? '#CC00FF' : '#FFD700')
         : isMidBoss ? (isRushBoss ? '#FF3300' : '#FF8C00')
         : color;
@@ -574,7 +644,8 @@ export class Renderer {
       if (isBoss || isMidBoss) {
         ctx.fillStyle = '#FFF'; ctx.font = '10px sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-        ctx.fillText(`${hp} / ${maxHp}`, 0, by + bh + 2);
+        const fmt = v => v >= 10000 ? `${(v / 1000).toFixed(1)}k` : `${v}`;
+        ctx.fillText(`${fmt(hp)} / ${fmt(maxHp)}`, 0, by + bh + 2);
       }
     }
 
@@ -851,8 +922,9 @@ export class Renderer {
     const attrAreaY = btnY + BOMB_H;
     const attrAreaH = BTN_AREA_H - BOMB_H;
     const attrs = [ATTR.ROCK, ATTR.SCISSORS, ATTR.PAPER];
+    const order = gm.buttonOrder || [0, 1, 2];
     for (let i = 0; i < 3; i++) {
-      const x = i * btnW, attr = attrs[i], color = ATTR_COLOR[attr];
+      const x = i * btnW, attr = attrs[order[i]], color = ATTR_COLOR[attr];
       const cx = x + btnW / 2, cy = attrAreaY + attrAreaH / 2;
       if (i > 0) {
         ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;

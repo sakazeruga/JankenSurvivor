@@ -2,7 +2,7 @@ import { GameManager, GameState } from './game.js';
 import { Renderer }    from './renderer.js';
 import { setupInput }  from './input.js';
 import { audio }       from './audio.js';
-import { AUDIO }       from './constants.js';
+import { AUDIO, LAST_STAGE_IDX } from './constants.js';
 import { auth }        from './auth.js';
 import { savedata }    from './savedata.js';
 
@@ -53,13 +53,21 @@ function loop(now) {
   }
 
   // BGM 管理
-  const hasUltraBoss = gm.state === GameState.PLAYING &&
+  const _lbEnemy = gm.state === GameState.PLAYING
+    ? gm.enemies.find(e => e.isLastBoss && e.alive && !e.exploding) : null;
+  const hasLastBoss  = !!_lbEnemy;
+  const lbPhaseKey   = hasLastBoss
+    ? (_lbEnemy.lbFinalPhase ? 'p3' : `p${_lbEnemy.lastBossPhase}`) : '';
+
+  const hasUltraBoss = !hasLastBoss && gm.state === GameState.PLAYING &&
     gm.enemies.some(e => e.isUltraBoss && e.alive && !e.exploding);
-  const hasGrandBoss = !hasUltraBoss && gm.state === GameState.PLAYING &&
+  const hasGrandBoss = !hasLastBoss && !hasUltraBoss && gm.state === GameState.PLAYING &&
     gm.enemies.some(e => e.isGrandBoss && e.alive && !e.exploding);
-  const hasNormalBoss = !hasUltraBoss && !hasGrandBoss && gm.state === GameState.PLAYING &&
+  const hasNormalBoss = !hasLastBoss && !hasUltraBoss && !hasGrandBoss && gm.state === GameState.PLAYING &&
     gm.enemies.some(e => e.isBoss && e.alive && !e.exploding);
-  const bossKey = hasUltraBoss ? 'ultra' : hasGrandBoss ? 'grand' : hasNormalBoss ? 'boss' : 'none';
+  const bossKey = hasLastBoss ? `lb_${lbPhaseKey}`
+    : hasUltraBoss ? 'ultra' : hasGrandBoss ? 'grand' : hasNormalBoss ? 'boss'
+    : (gm.stageIndex === LAST_STAGE_IDX && gm.state === GameState.PLAYING ? 'last_stage' : 'none');
 
   if (gm.state !== GameState.PAUSED) {
     if (gm.state !== prevState || bossKey !== prevBossKey) {
@@ -68,9 +76,14 @@ function loop(now) {
       } else if (gm.state === GameState.WAVE_RESULT) {
         audio.playBgm(AUDIO.BGM_TITLE);
       } else if (gm.state === GameState.PLAYING) {
-        if (hasUltraBoss)       audio.playBgm(AUDIO.BGM_ULTRA_BOSS);
+        if (hasLastBoss) {
+          if      (lbPhaseKey === 'p3') audio.playBgm(AUDIO.BGM_LAST_BOSS_P3);
+          else if (lbPhaseKey === 'p2') audio.playBgm(AUDIO.BGM_LAST_BOSS_P2);
+          else                          audio.playBgm(AUDIO.BGM_LAST_BOSS);
+        } else if (hasUltraBoss)       audio.playBgm(AUDIO.BGM_ULTRA_BOSS);
         else if (hasGrandBoss)  audio.playBgm(AUDIO.BGM_GRAND_BOSS);
         else if (hasNormalBoss) audio.playBgm(AUDIO.BGM_BOSS);
+        else if (gm.stageIndex === LAST_STAGE_IDX) audio.playBgm(AUDIO.BGM_LAST_STAGE);
         else                    audio.playBgm(AUDIO.BGM_STAGE);
       } else if (gm.state === GameState.GAME_OVER) {
         audio.playBgm(AUDIO.BGM_GAME_OVER);

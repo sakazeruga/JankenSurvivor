@@ -1,4 +1,4 @@
-import { ALL_ATTRS, CANVAS_W, SPAWN_Y, ENEMY_TYPE } from './constants.js';
+import { ALL_ATTRS, CANVAS_W, SPAWN_Y, ENEMY_TYPE, LAST_STAGE_IDX } from './constants.js';
 
 // ── Seeded PRNG (mulberry32) ───────────────────────────────────────────────
 function makeRNG(seed) {
@@ -132,15 +132,94 @@ function buildWave(stageIdx, waveIdx, rng) {
   return defs;
 }
 
+// ── Last Stage wave builder ────────────────────────────────────────────────
+function buildLastStageWave(waveIdx, rng) {
+  const stageIdx = LAST_STAGE_IDX;
+  const speed    = enemySpeed(stageIdx);
+  const hpMult   = hpMultiplier(stageIdx);
+  const bossExp  = 5 + (stageIdx - 5) * 0.6;  // 7.4
+
+  // Wave 4 is 3× length; others are normal length (NOT doubled like wave 2)
+  const isLastWave = waveIdx === 4;
+  const count  = enemyCount(stageIdx) * (isLastWave ? 3 : 1);
+  const dist   = distributeAttributes(count, rng);
+
+  const defs = [];
+  for (const { attribute, n } of dist) {
+    for (let i = 0; i < n; i++) {
+      const typeRoll   = rng();
+      const etype      = pickEnemyType(typeRoll, Math.min(waveIdx, 2));
+      const typeHpMult = etype === ENEMY_TYPE.LARGE ? 5 : etype === ENEMY_TYPE.MEDIUM ? 2 : 1;
+      defs.push({
+        attribute, enemyType: etype,
+        speed: speed * (0.80 + rng() * 0.40),
+        hp: Math.max(1, Math.round(hpMult * typeHpMult)),
+        x: 36 + rng() * (CANVAS_W - 72), y: SPAWN_Y,
+      });
+    }
+  }
+  for (let i = defs.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [defs[i], defs[j]] = [defs[j], defs[i]];
+  }
+
+  const midBossHp    = Math.round(10 * Math.pow(2, bossExp));
+  const midSpeed     = speed / 3;
+
+  if (isLastWave) {
+    // Wave 4: 2 mid-bosses at 1/3 and 2/3, then last boss
+    const i1 = Math.floor(defs.length / 3);
+    const i2 = Math.floor(2 * defs.length / 3);
+    defs.splice(i1, 0, {
+      attribute: ALL_ATTRS[Math.floor(rng() * 3)], isMidBoss: true,
+      speed: midSpeed, hp: midBossHp, x: CANVAS_W / 2, y: SPAWN_Y,
+    });
+    defs.splice(i2 + 1, 0, {
+      attribute: ALL_ATTRS[Math.floor(rng() * 3)], isMidBoss: true,
+      speed: midSpeed, hp: midBossHp, x: CANVAS_W / 2, y: SPAWN_Y,
+    });
+    const ultraHpBase = Math.round(20 * Math.pow(2, bossExp) * 9);
+    defs.push({
+      attribute: ALL_ATTRS[Math.floor(rng() * 3)],
+      speed: 0, hp: Math.round(ultraHpBase * 1.5),
+      x: CANVAS_W / 2, y: 112,
+      isBoss: true, isLastBoss: true,
+    });
+  } else {
+    // Waves 0-3: 1 mid-boss at midpoint
+    defs.splice(Math.floor(defs.length / 2), 0, {
+      attribute: ALL_ATTRS[Math.floor(rng() * 3)], isMidBoss: true,
+      speed: midSpeed, hp: midBossHp, x: CANVAS_W / 2, y: SPAWN_Y,
+    });
+    const normalBossHp = Math.round(20 * Math.pow(2, bossExp));
+    const bossAttr     = ALL_ATTRS[Math.floor(rng() * 3)];
+    if (waveIdx <= 1) {
+      defs.push({ attribute: bossAttr, speed: 0, hp: normalBossHp, x: CANVAS_W / 2, y: 92, isBoss: true });
+    } else if (waveIdx === 2) {
+      defs.push({ attribute: bossAttr, speed: 0, hp: normalBossHp * 3, x: CANVAS_W / 2, y: 112, isBoss: true, isGrandBoss: true });
+    } else {
+      defs.push({ attribute: bossAttr, speed: 0, hp: normalBossHp * 9, x: CANVAS_W / 2, y: 112, isBoss: true, isUltraBoss: true });
+    }
+  }
+  return defs;
+}
+
 // ── Public API ─────────────────────────────────────────────────────────────
 export function generateStage(stageIdx, seed) {
   const rng = makeRNG(seed);
   const si  = spawnInterval(stageIdx);
 
+  if (stageIdx === LAST_STAGE_IDX) {
+    const waves = [];
+    for (let w = 0; w < 5; w++) {
+      waves.push({ waveIndex: w, defs: buildLastStageWave(w, rng), spawnInterval: si });
+    }
+    return { stageIndex: stageIdx, waveCount: 5, waves };
+  }
+
   const waves = [];
   for (let w = 0; w < 3; w++) {
     waves.push({ waveIndex: w, defs: buildWave(stageIdx, w, rng), spawnInterval: si });
   }
-
   return { stageIndex: stageIdx, waveCount: 3, waves };
 }

@@ -98,6 +98,9 @@ export const BOSS_RADIUS         = 54;
 export const GRAND_BOSS_RADIUS   = 66;
 export const MID_BOSS_RADIUS     = 46;
 export const ULTRA_BOSS_RADIUS   = 80;
+export const LAST_BOSS_RADIUS    = 108;  // larger than ultra boss
+export const LAST_BOSS_P2_RADIUS = 32;   // phase 2: medium enemy size
+export const LAST_STAGE_IDX      = 9;    // stage 10 (0-indexed)
 export const BULLET_RADIUS       = 10;
 export const BTN_AREA_H     = 130;
 export const KILL_LINE_Y    = CANVAS_H - BTN_AREA_H - 10;
@@ -117,6 +120,10 @@ export const AUDIO = {
   BGM_BOSS:       'assets/audio/BossBGM.mp3',
   BGM_GRAND_BOSS: 'assets/audio/GrandBossBGM.mp3',
   BGM_ULTRA_BOSS: 'assets/audio/HugeBossBGM.mp3',
+  BGM_LAST_STAGE:   'assets/audio/LastStageBGM.mp3',
+  BGM_LAST_BOSS:    'assets/audio/LastBossBGM.mp3',
+  BGM_LAST_BOSS_P2: 'assets/audio/LastBossPhase2BGM.mp3',
+  BGM_LAST_BOSS_P3: 'assets/audio/LastBossPhase3BGM.mp3',
   BGM_GAME_CLEAR: 'assets/audio/GameClearBGM.mp3',
   BGM_GAME_OVER:  'assets/audio/GameOverBGM.mp3',
   SFX_ROCK:       'assets/wav/UseRock.mp3',
