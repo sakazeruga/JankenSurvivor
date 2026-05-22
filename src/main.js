@@ -13,6 +13,11 @@ const renderer = new Renderer(canvas);
 setupInput(canvas, gm, renderer);
 window._gm = gm; window._renderer = renderer;  // debug
 
+// ── 裏画面に行ったら自動ポーズ ────────────────────────────────────────────
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && gm.state === GameState.PLAYING) gm.togglePause();
+});
+
 // ── Auth 初期化 ────────────────────────────────────────────────────────────
 auth.init().then(() => {
   if (auth.isLoggedIn) savedata.fetchForUser();
