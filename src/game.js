@@ -536,8 +536,8 @@ export class GameManager {
       this._spawnHitParticles(boss.x, boss.y, '#FF4444', 12);
     }
 
-    // ── Initial one-time skill ─────────────────────────────────────────────
-    if (!boss.ultraInitDone) {
+    // ── Initial boss summon at HP ≤ 95% ───────────────────────────────────
+    if (!boss.ultraInitDone && hpRatio <= 0.95) {
       boss.ultraInitDone = true;
       this._spawnUltraInitBosses(boss);
     }
@@ -549,8 +549,8 @@ export class GameManager {
       this._spawnBossMinion(boss);
     }
 
-    // ── Phase skills: mid-boss + draw-immune wave (HP ≤ 90%) ─────────────
-    if (hpRatio <= 0.90 && !boss.ultraCharging) {
+    // ── Phase skills: mid-boss + draw-immune wave (HP ≤ 85%) ─────────────
+    if (hpRatio <= 0.85 && !boss.ultraCharging) {
       boss.ultraPhaseTimer -= dt;
       if (boss.ultraPhaseTimer <= 0) {
         boss.ultraPhaseTimer = ULTRA_PHASE_SKILL_PERIOD;
@@ -596,12 +596,13 @@ export class GameManager {
   // ── Ultra boss skill helpers ─────────────────────────────────────────────
 
   _spawnUltraInitBosses(boss) {
-    // Two normal bosses without shield, flanking the ultra boss position
+    // Two normal bosses without shield, flanking slightly below the ultra boss
     const normalBossHp = Math.round(20 * Math.pow(2, this.stageIndex));
+    const spawnY = boss.y + boss.radius + 50; // just in front of the ultra boss
     const positions = [CANVAS_W * 0.22, CANVAS_W * 0.78];
     for (const bx of positions) {
       const e = new Enemy({
-        x: bx, y: 92,
+        x: bx, y: spawnY,
         attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
         speed: 0,
         hp: normalBossHp,
