@@ -849,11 +849,14 @@ export class GameManager {
     if (enemy.isBoss) {
       audio.playSfx(AUDIO.SFX_BOSS_KILL);
 
-      // Clear all remaining enemies
-      for (const e of this.enemies) {
-        if (e !== enemy && e.alive && !e.exploding) {
-          e.triggerExplosion();
-          this._spawnExplosionParticles(e.x, e.y, ATTR_COLOR[e.attribute]);
+      // Clear all remaining enemies — skip for noShield init-bosses so they
+      // don't accidentally wipe the ultra boss that summoned them
+      if (!enemy.noShield) {
+        for (const e of this.enemies) {
+          if (e !== enemy && e.alive && !e.exploding) {
+            e.triggerExplosion();
+            this._spawnExplosionParticles(e.x, e.y, ATTR_COLOR[e.attribute]);
+          }
         }
       }
 
