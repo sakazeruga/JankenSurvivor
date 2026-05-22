@@ -28,6 +28,10 @@ async function doShare(gm) {
 }
 
 export function setupInput(canvas, gm, renderer) {
+  // ── Debug skip: tap WAVE text 5× within 2 s ──────────────────────────────
+  let waveClickCount = 0;
+  let waveClickTimer = 0;
+
   function scaledPos(clientX, clientY) {
     const rect   = canvas.getBoundingClientRect();
     const scaleX = canvas.width  / rect.width;
@@ -83,6 +87,21 @@ export function setupInput(canvas, gm, renderer) {
     if (gm.state === GameState.PLAYING) {
       if (renderer.isPauseBtn(x, y)) { gm.togglePause(); return; }
       if (renderer.isBombBtn(x, y))  { gm.activateBomb(); return; }
+
+      // ── Debug skip: 5 rapid taps on WAVE text ──────────────────────────
+      if (renderer.isWaveTextArea(x, y)) {
+        const now = Date.now();
+        if (now - waveClickTimer > 2000) waveClickCount = 0;
+        waveClickCount++;
+        waveClickTimer = now;
+        if (waveClickCount >= 5) {
+          waveClickCount = 0;
+          gm.debugSkipWave();
+          return;
+        }
+        return; // absorb tap so it doesn't also fire a bullet
+      }
+
       const idx = renderer.getButtonIndex(x, y);
       if (idx >= 0) gm.fireBullet(BTN_ATTRS[idx]);
     }

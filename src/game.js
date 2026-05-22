@@ -216,6 +216,18 @@ export class GameManager {
     this._reset();
   }
 
+  // ── Debug: skip current wave directly to skill shop ───────────────────────
+  debugSkipWave() {
+    if (this.state !== GameState.PLAYING) return;
+    // Instantly clear all active enemies, bullets, and lasers
+    this.enemies.forEach(e => { e.alive = false; });
+    this.bullets.forEach(b => { b.alive = false; });
+    this.lasers.forEach(l  => { l.alive = false; });
+    this.pendingDefs = [];
+    this.waveCleared = true;
+    this._onWaveCleared();
+  }
+
   update(dt) {
     if (this.state === GameState.PLAYING) {
       this._updatePlaying(dt);

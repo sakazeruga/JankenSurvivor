@@ -1193,6 +1193,12 @@ export class Renderer {
     return cx >= CANVAS_W - 44 && cy <= 30;
   }
 
+  // Hit-test for the "WAVE N / M" text in the HUD (debug skip trigger)
+  isWaveTextArea(cx, cy) {
+    return cx >= CANVAS_W / 2 - 75 && cx <= CANVAS_W / 2 + 75 &&
+           cy >= 5 && cy <= 45;
+  }
+
   isShareBtn(cx, cy) {
     const nby = 108 + 200 + 12 + 26;  // gridY + cardH + 12 + 26
     const sby = nby + 56 + 18;
