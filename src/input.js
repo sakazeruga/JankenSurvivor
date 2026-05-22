@@ -77,7 +77,14 @@ export function setupInput(canvas, gm, renderer) {
     }
 
     if (gm.state === GameState.GAME_OVER) {
-      if (renderer.isRetryBtn(x, y)) gm.selectDifficulty();
+      if (renderer.isGameOverLoadBtn(x, y)) {
+        gm.loadFromSave(savedata.current);
+        return;
+      }
+      if (renderer.isRetryBtn(x, y)) {
+        savedata.deleteSave();
+        gm.selectDifficulty();
+      }
       return;
     }
 

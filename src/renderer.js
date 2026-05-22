@@ -1209,10 +1209,27 @@ export class Renderer {
     ctx.fillText(gm.score.toLocaleString(), CANVAS_W / 2, cy);
     ctx.fillStyle = COLORS.UI_DIM; ctx.font = '16px sans-serif';
     ctx.fillText('FINAL SCORE', CANVAS_W / 2, cy + 34);
-    ctx.fillStyle = '#3498DB';
-    ctx.beginPath(); ctx.roundRect(CANVAS_W / 2 - 110, cy + 72, 220, 58, 29); ctx.fill();
-    ctx.fillStyle = '#FFF'; ctx.font = 'bold 22px sans-serif';
-    ctx.fillText('難易度選択へ戻る', CANVAS_W / 2, cy + 101);
+
+    const hasSave = auth.isLoggedIn && savedata.hasSave;
+    const bx = CANVAS_W / 2 - 110, bw = 220, bh = 58, br = 29;
+
+    if (hasSave) {
+      // セーブから再開
+      ctx.fillStyle = '#27AE60';
+      ctx.beginPath(); ctx.roundRect(bx, cy + 70, bw, bh, br); ctx.fill();
+      ctx.fillStyle = '#FFF'; ctx.font = 'bold 20px sans-serif';
+      ctx.fillText('💾 セーブから再開', CANVAS_W / 2, cy + 70 + bh / 2);
+      // 難易度選択へ
+      ctx.fillStyle = '#555';
+      ctx.beginPath(); ctx.roundRect(bx, cy + 142, bw, bh, br); ctx.fill();
+      ctx.fillStyle = '#FFF'; ctx.font = 'bold 19px sans-serif';
+      ctx.fillText('難易度選択へ戻る', CANVAS_W / 2, cy + 142 + bh / 2);
+    } else {
+      ctx.fillStyle = '#3498DB';
+      ctx.beginPath(); ctx.roundRect(bx, cy + 72, bw, bh, br); ctx.fill();
+      ctx.fillStyle = '#FFF'; ctx.font = 'bold 22px sans-serif';
+      ctx.fillText('難易度選択へ戻る', CANVAS_W / 2, cy + 101);
+    }
   }
 
   // ── Title screen ──────────────────────────────────────────────────────────
@@ -1421,10 +1438,19 @@ export class Renderer {
     return cx >= nbx && cx <= nbx + 240 && cy >= botY && cy <= botY + 56;
   }
 
-  isRetryBtn(cx, cy) {
+  isGameOverLoadBtn(cx, cy) {
+    if (!auth.isLoggedIn || !savedata.hasSave) return false;
     const cy2 = CANVAS_H / 2;
     return cx >= CANVAS_W / 2 - 110 && cx <= CANVAS_W / 2 + 110 &&
-           cy >= cy2 + 72 && cy <= cy2 + 130;
+           cy >= cy2 + 70 && cy <= cy2 + 128;
+  }
+
+  isRetryBtn(cx, cy) {
+    const cy2 = CANVAS_H / 2;
+    const hasSave = auth.isLoggedIn && savedata.hasSave;
+    const topY = hasSave ? cy2 + 142 : cy2 + 72;
+    return cx >= CANVAS_W / 2 - 110 && cx <= CANVAS_W / 2 + 110 &&
+           cy >= topY && cy <= topY + 58;
   }
 
   // ── タイトル画面ヒットテスト ─────────────────────────────────────────────
