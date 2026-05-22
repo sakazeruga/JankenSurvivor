@@ -821,9 +821,9 @@ export class Renderer {
       ctx.fillText(ind, CANVAS_W - 10, 14);
       ctx.textAlign = 'center';
     } else {
-      ctx.fillStyle = COLORS.UI_DIM; ctx.font = '11px sans-serif';
+      ctx.fillStyle = '#5B9BD5'; ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'right';
-      ctx.fillText('🔑 ログインでセーブ', CANVAS_W - 10, 14);
+      ctx.fillText('🔑 ログインでセーブ ▶', CANVAS_W - 10, 14);
       ctx.textAlign = 'center';
     }
 
@@ -1286,6 +1286,13 @@ export class Renderer {
   isWaveTextArea(cx, cy) {
     return cx >= CANVAS_W / 2 - 75 && cx <= CANVAS_W / 2 + 75 &&
            cy >= 5 && cy <= 45;
+  }
+
+  // WAVE_RESULT 画面右上「🔑 ログインでセーブ」ボタン
+  isShopLoginBtn(cx, cy) {
+    return !auth.isLoggedIn &&
+           cx >= CANVAS_W - 160 && cx <= CANVAS_W &&
+           cy >= 0 && cy <= 26;
   }
 
   isShareBtn(cx, cy) {

@@ -96,6 +96,7 @@ export function setupInput(canvas, gm, renderer) {
         return;
       }
       if (renderer.isShareBtn(x, y)) { doShare(gm); return; }
+      if (renderer.isShopLoginBtn(x, y)) { auth.loginWithGoogle(); return; }
       const skillId = renderer.getSkillCardId(x, y, gm.offeredSkills);
       if (skillId) gm.selectSkill(skillId);
       return;
