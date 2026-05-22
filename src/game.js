@@ -962,12 +962,14 @@ export class GameManager {
       audio.playSfx(AUDIO.SFX_DESTROY);
     }
 
-    // ── 誘爆: 倒した敵のradius×1.5範囲内にいる同サイズ以下の全敵を即死 ──────
+    // ── 誘爆: 倒した敵のradius×1.5範囲内にいる同ティア以下の全敵を即死 ──────
     // Chain explosion logic is preserved in core.js / constants.js for future reuse.
-    const blastR = enemy.radius * 1.5;
+    // ティア: NORMAL(0) < MEDIUM(1) < LARGE(2) < 中ボス(3) < 通常ボス(4) < 大ボス(5) < 超大ボス(6)
+    const blastR    = enemy.radius * 1.5;
+    const srcTier   = this._blastTier(enemy);
     for (const t of this.enemies) {
       if (t === enemy || !t.alive || t.exploding) continue;
-      if (t.radius > enemy.radius) continue; // 自分より大きい敵は安全
+      if (this._blastTier(t) > srcTier) continue; // 自分より強い敵は安全
       const dx = t.x - enemy.x;
       const dy = t.y - enemy.y;
       if (Math.sqrt(dx * dx + dy * dy) <= blastR) {
@@ -1039,6 +1041,17 @@ export class GameManager {
   }
 
   // ── Private: laser hit test ──────────────────────────────────────────────
+
+  // 誘爆強さ階層: NORMAL(0) < MEDIUM(1) < LARGE(2) < 中ボス(3) < 通常ボス(4) < 大ボス(5) < 超大ボス(6)
+  _blastTier(enemy) {
+    if (enemy.isUltraBoss)                          return 6;
+    if (enemy.isGrandBoss)                          return 5;
+    if (enemy.isBoss)                               return 4;
+    if (enemy.isMidBoss)                            return 3;
+    if (enemy.enemyType === ENEMY_TYPE.LARGE)       return 2;
+    if (enemy.enemyType === ENEMY_TYPE.MEDIUM)      return 1;
+    return 0;
+  }
 
   _laserHitsEnemy(laser, enemy) {
     const rx = enemy.x - laser.x;
