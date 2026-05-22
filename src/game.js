@@ -219,7 +219,22 @@ export class GameManager {
   // ── Debug: skip current wave directly to skill shop ───────────────────────
   debugSkipWave() {
     if (this.state !== GameState.PLAYING) return;
-    // Instantly clear all active enemies, bullets, and lasers
+
+    // Award score as if every remaining enemy was defeated (100% clear rate)
+    const mult = this.effectiveScoreMult;
+    const awardFor = (def) => {
+      let pts = Math.round(100 * mult);
+      if      (def.isUltraBoss)                pts = Math.round(pts * 10);
+      else if (def.isGrandBoss)                pts = Math.round(pts * 5);
+      else if (def.isBoss)                     pts = Math.round(pts * 2);
+      else if (def.isRushBoss)                 pts = Math.round(pts * 9);
+      else if (def.isMidBoss)                  pts = Math.round(pts * 3);
+      this.score += pts;
+    };
+    for (const def of this.pendingDefs)                   awardFor(def);
+    for (const e of this.enemies) { if (e.alive && !e.exploding) awardFor(e); }
+
+    // Clear everything and jump to skill shop
     this.enemies.forEach(e => { e.alive = false; });
     this.bullets.forEach(b => { b.alive = false; });
     this.lasers.forEach(l  => { l.alive = false; });
