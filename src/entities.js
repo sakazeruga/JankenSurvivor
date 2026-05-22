@@ -28,6 +28,7 @@ export class Enemy {
         this.ultraInitDone       = false;
         this.ultraMinionTimer    = 0;
         this.ultraPhaseTimer     = 10.0;  // first phase skill at 10 s
+        this.ultraPhaseSkillIdx  = 0;     // 0=中ボス召喚, 1=あいこ無効中型雑魚（交互発動）
         this.ultraRushTimer      = 14.0;  // first rush attack at 14 s
         this.ultraAbsorbActive   = false;
         this.ultraAbsorbTimer    = 0;

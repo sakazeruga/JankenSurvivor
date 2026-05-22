@@ -648,42 +648,48 @@ export class GameManager {
   _executeUltraPhaseSkill(boss, hpRatio) {
     const stageIdx  = this.stageIndex;
     const stageMult = stageIdx / 3 + 1;
-    // Number of mid-bosses: 1 at 90%, +1 per 25% HP lost
-    const midBossCount    = 1 + Math.min(3, Math.floor((0.90 - Math.min(hpRatio, 0.90)) / 0.25));
-    const drawImmuneCount = 5 + 2 * (midBossCount - 1);
 
-    const normalMidBossHp = Math.round(10 * Math.pow(2, stageIdx));
-    const midBossSpeed    = Math.min(1.0 + 0.10 * stageIdx, 4.5) * 60 / 3; // ≈ stage speed / 3
+    // HP 消費 25% ごとに段階が上がる（最大 3 段階）
+    const milestones = Math.min(3, Math.floor((1.0 - hpRatio) / 0.25));
 
     const yMin = boss.y + 60;
     const yMax = Math.min(CANVAS_H * 0.60, KILL_LINE_Y - 100);
 
-    // Mid-bosses
-    for (let i = 0; i < midBossCount; i++) {
-      const x = 36 + Math.random() * (CANVAS_W - 72);
-      const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
-      this.enemies.push(new Enemy({
-        x, y,
-        attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
-        speed: midBossSpeed * this.speedMultiplier,
-        hp: normalMidBossHp,
-        isMidBoss: true,
-      }));
+    if (boss.ultraPhaseSkillIdx === 0) {
+      // ── Skill A: 中ボス召喚 — 1体 + 25%減ごとに+1体 ────────────────────
+      const midBossCount = 1 + milestones;
+      const normalMidBossHp = Math.round(10 * Math.pow(2, stageIdx));
+      const midBossSpeed    = Math.min(1.0 + 0.10 * stageIdx, 4.5) * 60 / 3;
+      for (let i = 0; i < midBossCount; i++) {
+        const x = 36 + Math.random() * (CANVAS_W - 72);
+        const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
+        this.enemies.push(new Enemy({
+          x, y,
+          attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+          speed: midBossSpeed * this.speedMultiplier,
+          hp: normalMidBossHp,
+          isMidBoss: true,
+        }));
+      }
+    } else {
+      // ── Skill B: あいこ無効中型雑魚 — 5体 + 25%減ごとに+2体 ────────────
+      const drawImmuneCount = 5 + 2 * milestones;
+      for (let i = 0; i < drawImmuneCount; i++) {
+        const x = 36 + Math.random() * (CANVAS_W - 72);
+        const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
+        this.enemies.push(new Enemy({
+          x, y,
+          attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
+          speed: 42 * this.speedMultiplier,
+          hp: Math.max(2, Math.round(stageMult * 2)),
+          enemyType: ENEMY_TYPE.MEDIUM,
+          drawImmune: true,
+        }));
+      }
     }
 
-    // Draw-immune medium enemies
-    for (let i = 0; i < drawImmuneCount; i++) {
-      const x = 36 + Math.random() * (CANVAS_W - 72);
-      const y = yMin + Math.random() * Math.max(yMax - yMin, 60);
-      this.enemies.push(new Enemy({
-        x, y,
-        attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
-        speed: 42 * this.speedMultiplier,
-        hp: Math.max(2, Math.round(stageMult * 2)),
-        enemyType: ENEMY_TYPE.MEDIUM,
-        drawImmune: true,
-      }));
-    }
+    // A→B→A→B と交互に切り替え
+    boss.ultraPhaseSkillIdx = 1 - boss.ultraPhaseSkillIdx;
   }
 
   _startUltraRushCharge(boss) {
