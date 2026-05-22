@@ -73,7 +73,7 @@ export const ATTR_RARE_SKILLS = {
 // 汎用 column: common skills
 export const UTIL_COMMON_SKILLS = [
   { id: 'util_bomb',   label: '無料ボム',   desc: 'ボム使用可能回数+1',              rarity: 'common', baseCost: 400 },
-  { id: 'util_score',  label: 'スコア倍率', desc: 'スコア獲得量×1.1倍',             rarity: 'common', baseCost: 400 },
+  { id: 'util_score',  label: 'スコア倍率', desc: 'スコア獲得量×1.5倍',             rarity: 'common', baseCost: 400 },
   { id: 'rare_shield', label: '守護盾',     desc: 'Lv1=1秒/Lv毎+0.2秒の無敵\nCT5秒（累積でLv上昇）', rarity: 'common', baseCost: 400 },
 ];
 

@@ -345,7 +345,7 @@ export class GameManager {
   }
 
   get effectiveScoreMult() {
-    return this.scoreMultiplier * Math.pow(1.1, this.skills['util_score'] || 0);
+    return this.scoreMultiplier * Math.pow(1.5, this.skills['util_score'] || 0);
   }
 
   // ── Private: setup ───────────────────────────────────────────────────────
