@@ -6,6 +6,8 @@ import {
   BASE_HIT_PENALTY, VERSION,
 } from './constants.js';
 import { GameState } from './game.js';
+import { auth }      from './auth.js';
+import { savedata }  from './savedata.js';
 
 // Polyfill for CanvasRenderingContext2D.roundRect (Safari < 15.4, older Chrome)
 if (!CanvasRenderingContext2D.prototype.roundRect) {
@@ -86,7 +88,7 @@ export class Renderer {
     const { ctx } = this;
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-    if (gm.state === GameState.TITLE) { this._drawTitle(); return; }
+    if (gm.state === GameState.TITLE) { this._drawTitle(gm); return; }
     if (gm.state === GameState.DIFFICULTY_SELECT) { this._drawDifficultySelect(); return; }
 
     const isPaused = gm.state === GameState.PAUSED;
@@ -810,6 +812,21 @@ export class Renderer {
     ctx.font      = '12px sans-serif';
     ctx.fillText('スキルを1つ選択（スキップ可）', CANVAS_W / 2, 92);
 
+    // ── セーブ状態インジケータ ─────────────────────────────────────────────
+    if (auth.isLoggedIn) {
+      const ind = savedata.isSaving ? '💾 保存中...' : '💾 保存済み ✓';
+      ctx.fillStyle = savedata.isSaving ? COLORS.UI_DIM : '#2ECC71';
+      ctx.font      = '11px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(ind, CANVAS_W - 10, 14);
+      ctx.textAlign = 'center';
+    } else {
+      ctx.fillStyle = COLORS.UI_DIM; ctx.font = '11px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('🔑 ログインでセーブ', CANVAS_W - 10, 14);
+      ctx.textAlign = 'center';
+    }
+
     const numCols  = 4;
     const pad      = 6;
     const gapX     = 5;
@@ -1129,11 +1146,12 @@ export class Renderer {
 
   // ── Title screen ──────────────────────────────────────────────────────────
 
-  _drawTitle() {
+  _drawTitle(gm) {
     const { ctx } = this;
     const t = Date.now() / 1000;
     ctx.fillStyle = COLORS.BG; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
+    // ── ボールアニメーション ──────────────────────────────────────────────────
     const positions = [CANVAS_W / 2 - 90, CANVAS_W / 2, CANVAS_W / 2 + 90];
     const attrs     = [ATTR.ROCK, ATTR.SCISSORS, ATTR.PAPER];
     for (let i = 0; i < 3; i++) {
@@ -1148,24 +1166,95 @@ export class Renderer {
       ctx.fillText(ATTR_SYMBOL[attrs[i]], ox, oy + 2);
     }
 
+    // ── タイトルロゴ ──────────────────────────────────────────────────────────
     ctx.fillStyle = '#FFF'; ctx.font = 'bold 32px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('じゃんけんサバイバー', CANVAS_W / 2, CANVAS_H / 2 - 130);
     ctx.fillStyle = COLORS.UI_DIM; ctx.font = '14px sans-serif';
     ctx.fillText('JMP: Janken Match Puzzle', CANVAS_W / 2, CANVAS_H / 2 - 100);
 
+    // ── Auth UI ───────────────────────────────────────────────────────────────
     const pulse = 0.85 + 0.15 * Math.sin(t * 3);
-    const sbx   = CANVAS_W / 2 - 130, sby = CANVAS_H / 2 + 55;
-    ctx.save(); ctx.globalAlpha = pulse; ctx.fillStyle = '#2ECC71';
-    ctx.beginPath(); ctx.roundRect(sbx, sby, 260, 66, 33); ctx.fill(); ctx.restore();
-    ctx.fillStyle = '#FFF'; ctx.font = 'bold 26px sans-serif';
-    ctx.fillText('タップしてはじめる', CANVAS_W / 2, sby + 33);
+
+    if (!auth.isLoggedIn) {
+      // 未ログイン: スタートボタン + ログインボタン
+      const sbx = CANVAS_W / 2 - 130, sby = CANVAS_H / 2 + 40;
+      ctx.save(); ctx.globalAlpha = pulse; ctx.fillStyle = '#2ECC71';
+      ctx.beginPath(); ctx.roundRect(sbx, sby, 260, 60, 30); ctx.fill(); ctx.restore();
+      ctx.fillStyle = '#FFF'; ctx.font = 'bold 24px sans-serif';
+      ctx.fillText('タップしてはじめる', CANVAS_W / 2, sby + 30);
+
+      // ログインボタン
+      const lbx = CANVAS_W / 2 - 110, lby = sby + 72;
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.beginPath(); ctx.roundRect(lbx, lby, 220, 46, 23); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect(lbx, lby, 220, 46, 23); ctx.stroke();
+      ctx.fillStyle = '#FFF'; ctx.font = 'bold 15px sans-serif';
+      ctx.fillText('🔑 Googleでログイン', CANVAS_W / 2, lby + 23);
+
+      ctx.fillStyle = COLORS.UI_DIM; ctx.font = '11px sans-serif';
+      ctx.fillText('ログインするとセーブ機能が使えます', CANVAS_W / 2, lby + 56);
+
+    } else if (savedata.isLoading) {
+      // ログイン済み・セーブ確認中
+      const sbx = CANVAS_W / 2 - 130, sby = CANVAS_H / 2 + 40;
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath(); ctx.roundRect(sbx, sby, 260, 60, 30); ctx.fill();
+      ctx.fillStyle = COLORS.UI_DIM; ctx.font = '16px sans-serif';
+      ctx.fillText('セーブデータを確認中...', CANVAS_W / 2, sby + 30);
+      this._drawTitleUserChip(sby + 80);
+
+    } else if (savedata.hasSave) {
+      // ログイン済み・セーブあり: 続きから / 最初から
+      const cby = CANVAS_H / 2 + 35;
+      ctx.save(); ctx.globalAlpha = pulse; ctx.fillStyle = '#2ECC71';
+      ctx.beginPath(); ctx.roundRect(CANVAS_W / 2 - 130, cby, 260, 62, 31); ctx.fill(); ctx.restore();
+      ctx.fillStyle = '#FFF'; ctx.font = 'bold 24px sans-serif';
+      ctx.fillText('続きから', CANVAS_W / 2, cby + 31);
+
+      const save = savedata.current;
+      const diffCfg = DIFFICULTY_CONFIG[save.difficulty];
+      ctx.fillStyle = diffCfg?.color ?? '#AAA'; ctx.font = '12px sans-serif';
+      ctx.fillText(`${diffCfg?.label ?? save.difficulty}  STAGE ${save.stageIndex + 1} WAVE ${save.waveIndex + 1}  ${save.score.toLocaleString()}pt`, CANVAS_W / 2, cby + 52);
+
+      const nby = cby + 68;
+      ctx.fillStyle = 'rgba(255,255,255,0.13)';
+      ctx.beginPath(); ctx.roundRect(CANVAS_W / 2 - 110, nby, 220, 44, 22); ctx.fill();
+      ctx.fillStyle = COLORS.UI_DIM; ctx.font = 'bold 15px sans-serif';
+      ctx.fillText('最初から', CANVAS_W / 2, nby + 22);
+
+      this._drawTitleUserChip(nby + 62);
+
+    } else {
+      // ログイン済み・セーブなし
+      const sbx = CANVAS_W / 2 - 130, sby = CANVAS_H / 2 + 40;
+      ctx.save(); ctx.globalAlpha = pulse; ctx.fillStyle = '#2ECC71';
+      ctx.beginPath(); ctx.roundRect(sbx, sby, 260, 60, 30); ctx.fill(); ctx.restore();
+      ctx.fillStyle = '#FFF'; ctx.font = 'bold 24px sans-serif';
+      ctx.fillText('タップしてはじめる', CANVAS_W / 2, sby + 30);
+      this._drawTitleUserChip(sby + 72);
+    }
+
     ctx.fillStyle = COLORS.UI_DIM; ctx.font = '13px sans-serif';
     ctx.fillText('Rock · Scissors · Paper — Survive!', CANVAS_W / 2, CANVAS_H - 46);
-
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
-    ctx.font      = '11px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.font = '11px sans-serif';
     ctx.fillText(VERSION, CANVAS_W / 2, CANVAS_H - 24);
+  }
+
+  // ── ユーザーチップ（ログイン名 + ログアウトボタン）────────────────────────
+  _drawTitleUserChip(y) {
+    const { ctx } = this;
+    const name = auth.displayName;
+    ctx.fillStyle = COLORS.UI_DIM; ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`✅ ${name}`, CANVAS_W / 2 - 28, y);
+    // ログアウトボタン
+    const lox = CANVAS_W / 2 + 52, loy = y;
+    ctx.fillStyle = 'rgba(255,255,255,0.10)';
+    ctx.beginPath(); ctx.roundRect(lox - 28, loy - 12, 56, 24, 12); ctx.fill();
+    ctx.fillStyle = '#FF6B6B'; ctx.font = '11px sans-serif';
+    ctx.fillText('ログアウト', lox, loy);
   }
 
   // ── Hit-testing helpers ───────────────────────────────────────────────────
@@ -1255,8 +1344,46 @@ export class Renderer {
            cy >= cy2 + 72 && cy <= cy2 + 130;
   }
 
+  // ── タイトル画面ヒットテスト ─────────────────────────────────────────────
   isTitleStart(cx, cy) {
-    const sby = CANVAS_H / 2 + 55;
-    return cy >= sby && cy <= sby + 66;
+    // ログイン済み・セーブなし or 未ログイン: "タップしてはじめる"
+    if (auth.isLoggedIn && savedata.hasSave) return false;
+    if (savedata.isLoading) return false;
+    const sby = CANVAS_H / 2 + 40;
+    return cy >= sby && cy <= sby + 60;
+  }
+
+  isTitleLoginBtn(cx, cy) {
+    if (auth.isLoggedIn) return false;
+    const sby = CANVAS_H / 2 + 40;
+    const lby = sby + 72;
+    return cx >= CANVAS_W / 2 - 110 && cx <= CANVAS_W / 2 + 110 &&
+           cy >= lby && cy <= lby + 46;
+  }
+
+  isTitleContinueBtn(cx, cy) {
+    if (!auth.isLoggedIn || !savedata.hasSave || savedata.isLoading) return false;
+    const cby = CANVAS_H / 2 + 35;
+    return cx >= CANVAS_W / 2 - 130 && cx <= CANVAS_W / 2 + 130 &&
+           cy >= cby && cy <= cby + 62;
+  }
+
+  isTitleNewGameBtn(cx, cy) {
+    if (!auth.isLoggedIn || !savedata.hasSave || savedata.isLoading) return false;
+    const cby = CANVAS_H / 2 + 35;
+    const nby = cby + 68;
+    return cx >= CANVAS_W / 2 - 110 && cx <= CANVAS_W / 2 + 110 &&
+           cy >= nby && cy <= nby + 44;
+  }
+
+  isTitleLogoutBtn(cx, cy) {
+    if (!auth.isLoggedIn) return false;
+    // ユーザーチップのログアウトボタン位置
+    const hasSave = savedata.hasSave && !savedata.isLoading;
+    const base = hasSave ? CANVAS_H / 2 + 35 + 68 + 44 + 20 + 12
+                         : CANVAS_H / 2 + 40 + 60 + 12;
+    const lox  = CANVAS_W / 2 + 52;
+    return cx >= lox - 28 && cx <= lox + 28 &&
+           cy >= base - 12 && cy <= base + 12;
   }
 }

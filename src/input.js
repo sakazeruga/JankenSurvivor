@@ -1,6 +1,8 @@
 import { ATTR, DIFFICULTY, AUDIO } from './constants.js';
 import { GameState } from './game.js';
-import { audio } from './audio.js';
+import { audio }     from './audio.js';
+import { auth }      from './auth.js';
+import { savedata }  from './savedata.js';
 
 const BTN_ATTRS    = [ATTR.ROCK, ATTR.SCISSORS, ATTR.PAPER];
 const DIFFICULTIES = [DIFFICULTY.EASY, DIFFICULTY.NORMAL, DIFFICULTY.HARD, DIFFICULTY.MERCILESS];
@@ -40,13 +42,28 @@ export function setupInput(canvas, gm, renderer) {
   }
 
   function onTap(clientX, clientY) {
-    // Unblock title BGM (and any BGM) on first user interaction
     audio.unlock();
-
     const { x, y } = scaledPos(clientX, clientY);
 
+    // ── タイトル画面 ────────────────────────────────────────────────────────
     if (gm.state === GameState.TITLE) {
-      if (renderer.isTitleStart(x, y)) gm.selectDifficulty();
+      // ログアウト
+      if (renderer.isTitleLogoutBtn(x, y)) { auth.logout(); return; }
+      // 続きから（セーブあり）
+      if (renderer.isTitleContinueBtn(x, y)) {
+        if (savedata.current) gm.loadFromSave(savedata.current);
+        return;
+      }
+      // 最初から（セーブあり・新規開始）
+      if (renderer.isTitleNewGameBtn(x, y)) {
+        savedata.deleteSave();
+        gm.selectDifficulty();
+        return;
+      }
+      // Googleログイン
+      if (renderer.isTitleLoginBtn(x, y)) { auth.loginWithGoogle(); return; }
+      // 通常スタート（未ログイン or セーブなし）
+      if (renderer.isTitleStart(x, y)) { gm.selectDifficulty(); return; }
       return;
     }
 
@@ -71,9 +88,14 @@ export function setupInput(canvas, gm, renderer) {
       return;
     }
 
+    // ── スキルショップ ──────────────────────────────────────────────────────
     if (gm.state === GameState.WAVE_RESULT) {
-      if (renderer.isNextWaveBtn(x, y)) { gm.advanceFromShop(); return; }
-      if (renderer.isShareBtn(x, y))    { doShare(gm);          return; }
+      if (renderer.isNextWaveBtn(x, y)) {
+        gm.advanceFromShop();
+        savedata.save(gm);  // 次のWave開始状態をセーブ（fire & forget）
+        return;
+      }
+      if (renderer.isShareBtn(x, y)) { doShare(gm); return; }
       const skillId = renderer.getSkillCardId(x, y, gm.offeredSkills);
       if (skillId) gm.selectSkill(skillId);
       return;
@@ -99,7 +121,7 @@ export function setupInput(canvas, gm, renderer) {
           gm.debugSkipWave();
           return;
         }
-        return; // absorb tap so it doesn't also fire a bullet
+        return;
       }
 
       const idx = renderer.getButtonIndex(x, y);

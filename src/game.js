@@ -216,6 +216,28 @@ export class GameManager {
     this._reset();
   }
 
+  // ── セーブデータから復元 ──────────────────────────────────────────────────
+  loadFromSave(saveData) {
+    this._reset();
+    this.difficulty      = saveData.difficulty;
+    const cfg            = DIFFICULTY_CONFIG[this.difficulty];
+    this.speedMultiplier = cfg.speedMult;
+    this.scoreMultiplier = cfg.scoreMult;
+    this.skills          = { ...saveData.skills };
+    this.columnPurchases = { ...saveData.columnPurchases };
+    this.shieldCharges   = saveData.shieldCharges || 0;
+    this.clearCycles     = saveData.clearCycles   || 0;
+    this.state           = GameState.PLAYING;
+    // _loadStage は INITIAL_SCORE 加算 + bombsUsed リセットをするので、後で上書き
+    this._loadStage(saveData.stageIndex);
+    this.score     = saveData.score;
+    this.bombsUsed = saveData.bombsUsed || 0;
+    if (saveData.waveIndex !== 0) {
+      this._loadWave(saveData.waveIndex);
+    }
+    audio.playSfx(AUDIO.SFX_START);
+  }
+
   // ── Debug: skip current wave directly to skill shop ───────────────────────
   debugSkipWave() {
     if (this.state !== GameState.PLAYING) return;

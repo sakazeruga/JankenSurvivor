@@ -3,6 +3,8 @@ import { Renderer }    from './renderer.js';
 import { setupInput }  from './input.js';
 import { audio }       from './audio.js';
 import { AUDIO }       from './constants.js';
+import { auth }        from './auth.js';
+import { savedata }    from './savedata.js';
 
 const canvas   = document.getElementById('gameCanvas');
 const gm       = new GameManager();
@@ -11,9 +13,23 @@ const renderer = new Renderer(canvas);
 setupInput(canvas, gm, renderer);
 window._gm = gm; window._renderer = renderer;  // debug
 
+// ── Auth 初期化 ────────────────────────────────────────────────────────────
+auth.init().then(() => {
+  if (auth.isLoggedIn) savedata.fetchForUser();
+});
+
+auth.onChange(user => {
+  if (user) {
+    savedata.fetchForUser();
+  } else {
+    savedata._data = null;
+  }
+});
+
+// ── ゲームループ ────────────────────────────────────────────────────────────
 let lastTime    = performance.now();
 let prevState   = null;
-let prevBossKey = '';  // 'none' | 'boss' | 'grand'
+let prevBossKey = '';
 
 function loop(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.05);
@@ -21,7 +37,14 @@ function loop(now) {
 
   gm.update(dt);
 
-  // BGM management — skip while paused to preserve BGM continuity
+  // ゲーム終了時にセーブ削除
+  if (gm.state !== prevState) {
+    if (gm.state === GameState.GAME_OVER || gm.state === GameState.GAME_CLEAR) {
+      savedata.deleteSave();
+    }
+  }
+
+  // BGM 管理
   const hasUltraBoss = gm.state === GameState.PLAYING &&
     gm.enemies.some(e => e.isUltraBoss && e.alive && !e.exploding);
   const hasGrandBoss = !hasUltraBoss && gm.state === GameState.PLAYING &&
@@ -46,11 +69,11 @@ function loop(now) {
       } else if (gm.state === GameState.GAME_CLEAR) {
         audio.playBgm(AUDIO.BGM_GAME_CLEAR);
       }
-      prevState   = gm.state;
       prevBossKey = bossKey;
     }
   }
 
+  prevState = gm.state;
   renderer.render(gm);
   requestAnimationFrame(loop);
 }
