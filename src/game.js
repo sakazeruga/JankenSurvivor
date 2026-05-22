@@ -956,13 +956,16 @@ export class GameManager {
       audio.playSfx(AUDIO.SFX_DESTROY);
     }
 
-    // Bosses and mid-bosses cannot be chain-targeted
-    const chainTargets = this.enemies.filter(e => !e.isBoss && !e.isMidBoss);
-    const chained = (enemy.isBoss || enemy.isMidBoss) ? [] : chainExplosion(enemy, chainTargets, CHAIN_RADIUS, CHAIN_MAX_DEPTH);
-    for (const c of chained) {
-      c.triggerExplosion();
-      this._spawnExplosionParticles(c.x, c.y, ATTR_COLOR[c.attribute]);
-    }
+    // Chain explosion — currently disabled.
+    // Logic is intact in core.js (chainExplosion) and constants.js (CHAIN_RADIUS/CHAIN_MAX_DEPTH)
+    // for future reuse (e.g. 分裂弾の爆発連鎖など).
+    // const chainTargets = this.enemies.filter(e => !e.isBoss && !e.isMidBoss);
+    // const chained = (enemy.isBoss || enemy.isMidBoss) ? [] : chainExplosion(enemy, chainTargets, CHAIN_RADIUS, CHAIN_MAX_DEPTH);
+    // for (const c of chained) {
+    //   c.triggerExplosion();
+    //   this._spawnExplosionParticles(c.x, c.y, ATTR_COLOR[c.attribute]);
+    // }
+    const chained = [];
 
     const multiplier = 1 + 0.5 * chained.length;
     let pts = Math.round(100 * multiplier * this.effectiveScoreMult);
