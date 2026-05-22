@@ -956,8 +956,8 @@ export class GameManager {
       audio.playSfx(AUDIO.SFX_DESTROY);
     }
 
-    // Mid-boss neither triggers chain nor can be chain-targeted
-    const chainTargets = this.enemies.filter(e => !e.isMidBoss);
+    // Bosses and mid-bosses cannot be chain-targeted
+    const chainTargets = this.enemies.filter(e => !e.isBoss && !e.isMidBoss);
     const chained = (enemy.isBoss || enemy.isMidBoss) ? [] : chainExplosion(enemy, chainTargets, CHAIN_RADIUS, CHAIN_MAX_DEPTH);
     for (const c of chained) {
       c.triggerExplosion();
