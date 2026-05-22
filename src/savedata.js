@@ -25,16 +25,17 @@ export const savedata = {
     this._data = data?.save_data ?? null;
   },
 
-  // ── セーブ（advanceFromShop 直後に呼ぶ）────────────────────────────────────
+  // ── セーブ ───────────────────────────────────────────────────────────────
   async save(gm) {
     if (!auth.isLoggedIn) return false;
     this._saving = true;
+    const target = gm.saveTarget;   // WAVE_RESULT中は次Wave/Stage、PLAYING中は現在地
     const payload = {
       version:         1,
       savedAt:         new Date().toISOString(),
       difficulty:      gm.difficulty,
-      stageIndex:      gm.stageIndex,
-      waveIndex:       gm.waveIndex,
+      stageIndex:      target.stageIndex,
+      waveIndex:       target.waveIndex,
       score:           gm.score,
       skills:          { ...gm.skills },
       columnPurchases: { ...gm.columnPurchases },

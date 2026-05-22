@@ -296,6 +296,17 @@ export class GameManager {
     return this._maxBombs() - this.bombsUsed;
   }
 
+  // WAVE_RESULT 中は「次に開始すべきWave/Stage」を返す（セーブ先計算用）
+  get saveTarget() {
+    if (this.state === GameState.WAVE_RESULT) {
+      if (this._nextWaveIdx >= 0) {
+        return { stageIndex: this.stageIndex, waveIndex: this._nextWaveIdx };
+      }
+      return { stageIndex: this.stageIndex + 1, waveIndex: 0 };
+    }
+    return { stageIndex: this.stageIndex, waveIndex: this.waveIndex };
+  }
+
   get effectiveScoreMult() {
     return this.scoreMultiplier * Math.pow(1.1, this.skills['util_score'] || 0);
   }

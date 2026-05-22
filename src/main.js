@@ -42,8 +42,11 @@ function loop(now) {
 
   gm.update(dt);
 
-  // ゲーム終了時にセーブ削除
+  // 状態遷移時の処理
   if (gm.state !== prevState) {
+    if (gm.state === GameState.WAVE_RESULT) {
+      savedata.save(gm);  // Waveクリア直後にセーブ（saveTargetで次Wave/Stageを指す）
+    }
     if (gm.state === GameState.GAME_OVER || gm.state === GameState.GAME_CLEAR) {
       savedata.deleteSave();
     }

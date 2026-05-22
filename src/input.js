@@ -98,7 +98,10 @@ export function setupInput(canvas, gm, renderer) {
       if (renderer.isShareBtn(x, y)) { doShare(gm); return; }
       if (renderer.isShopLoginBtn(x, y)) { auth.loginWithGoogle(); return; }
       const skillId = renderer.getSkillCardId(x, y, gm.offeredSkills);
-      if (skillId) gm.selectSkill(skillId);
+      if (skillId) {
+        gm.selectSkill(skillId);
+        savedata.save(gm);  // スキル選択後に再セーブ（スキルを含む状態で保存）
+      }
       return;
     }
 
