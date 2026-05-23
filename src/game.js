@@ -26,7 +26,7 @@ const LB_LINE_CHARGE_CT   = 2.5;   // default CD between line charges
 
 // ── Ultra boss timers ──────────────────────────────────────────────────────
 const ULTRA_MINION_PERIOD     = BOSS_SUMMON_PERIOD / 3; // 3× faster than normal boss (≈0.39 s)
-const LB_FINAL_MINION_PERIOD  = ULTRA_MINION_PERIOD / 3; // final phase: 3× ultra boss rate (≈0.13 s)
+const LB_FINAL_MINION_PERIOD  = ULTRA_MINION_PERIOD / 5; // final phase: 5× ultra boss rate (≈0.08 s)
 const ULTRA_PHASE_SKILL_PERIOD= 10.0;  // mid-boss + draw-immune spawn interval (HP ≤ 90%)
 const ULTRA_RUSH_PERIOD       = 14.0;  // rush attack interval (HP ≤ 50%)
 const ULTRA_CHARGE_DURATION   = 2.5;   // charge wind-up before rush boss spawns
@@ -180,7 +180,7 @@ export class GameManager {
   _spawnDropItem(x, y, kindOverride = null, attrOverride = null, statOverride = null) {
     const _addItem = (k, a, s) => {
       const it = new DropItem(x, y, k, a, s);
-      if (this.lbFinalActive) it.vy = 330; // final phase: 3× fall speed
+      if (this.lbFinalActive) it.vy = 1100; // final phase: 10× fall speed
       this.items.push(it);
     };
     if (kindOverride) { _addItem(kindOverride, attrOverride, statOverride); return; }
@@ -950,7 +950,7 @@ export class GameManager {
 
     // Activate final-phase flags: speed up existing items × 3
     this.lbFinalActive = true;
-    for (const item of this.items) item.vy = 330;
+    for (const item of this.items) item.vy = 1100;
   }
 
   // ── Last boss: helpers ────────────────────────────────────────────────────

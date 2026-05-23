@@ -400,7 +400,7 @@ export class Renderer {
     // ── Final phase countdown (last boss) ────────────────────────────────
     const _lb = gm.enemies?.find(e => e.isLastBoss && e.alive && !e.exploding);
     if (_lb?.lbFinalPhase) {
-      const _rem    = Math.max(0, 40 - (_lb.lbFinalTimer || 0));
+      const _rem    = Math.max(0, _lb.lbFinalTimer || 0);
       const _urgent = _rem <= 10;
       const _pulse  = 0.5 + 0.5 * Math.abs(Math.sin(Date.now() / (_urgent ? 150 : 300)));
       ctx.save();
@@ -713,7 +713,7 @@ export class Renderer {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       if (isLastBoss) {
         if (enemy.lbFinalPhase) {
-          const remaining = Math.max(0, 40 - (enemy.lbFinalTimer || 0));
+          const remaining = Math.max(0, enemy.lbFinalTimer || 0);
           ctx.fillStyle = '#FF2200'; ctx.font = 'bold 13px sans-serif';
           ctx.fillText(`☠ FINAL  残り${Math.ceil(remaining)}s`, 0, statusY);
         } else if (enemy.lastBossPhase === 1) {
