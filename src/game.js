@@ -981,7 +981,8 @@ export class GameManager {
   // ── Last boss: final-phase end → slo-mo clear sequence ───────────────────
 
   _triggerLbClearSequence(boss) {
-    // ① SFX ×3 同時再生
+    // ① BGM 停止 → SFX ×3 同時再生
+    audio.stopBgm();
     audio.playSfx(AUDIO.SFX_BOSS_KILL);
     audio.playSfx(AUDIO.SFX_LAST_BOSS_KILL_1);
     audio.playSfx(AUDIO.SFX_LAST_BOSS_KILL_2);
@@ -1401,7 +1402,7 @@ export class GameManager {
     const typeHpMult = enemyType === ENEMY_TYPE.MEDIUM ? 2 : 1;
     const stageMult  = this.stageIndex / 3 + 1;
 
-    this.enemies.push(new Enemy({
+    const e = new Enemy({
       x, y,
       attribute: attr,
       speed: 30 * this.speedMultiplier,
@@ -1409,7 +1410,10 @@ export class GameManager {
       isBoss: false,
       enemyType,
       drawImmune,
-    }));
+    });
+    // 最終局面ミニオン: 紫色化 & ペナルティ×5 フラグ
+    if (boss.lbFinalPhase) e.lbFinalMinion = true;
+    this.enemies.push(e);
   }
 
   // ── Private: judgment & scoring ──────────────────────────────────────────
@@ -1656,9 +1660,10 @@ export class GameManager {
     if (enemy.isDummy) return; // ダミー敵は素通りしてもペナルティなし
     const stageMult = this.stageIndex / 3 + 1;
     const diffMult  = DIFFICULTY_CONFIG[this.difficulty].damageMult;
-    const typeMult  = enemy.isBoss    ? 3
-      : enemy.isRushBoss ? 45  // 3× mid-boss (highly punishing — don't let the rush boss through)
-      : enemy.isMidBoss  ? 15
+    const typeMult  = enemy.isBoss      ? 3
+      : enemy.isRushBoss   ? 45  // 3× mid-boss (highly punishing)
+      : enemy.isMidBoss    ? 15
+      : enemy.lbFinalMinion ? 5  // 最終局面特攻ミニオン: ×5（ワンミス即死級）
       : enemy.enemyType === ENEMY_TYPE.LARGE  ? 5
       : enemy.enemyType === ENEMY_TYPE.MEDIUM ? 3
       : 1;

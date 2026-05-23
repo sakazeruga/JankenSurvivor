@@ -497,7 +497,7 @@ export class Renderer {
     const { x, y, radius, attribute, scale, alpha, exploding, hp, maxHp,
             isBoss, isGrandBoss, isUltraBoss, isLastBoss, isMidBoss, isRushBoss,
             enemyType, drawImmune } = enemy;
-    const color = ATTR_COLOR[attribute];
+    const color = enemy.lbFinalMinion ? '#CC00FF' : ATTR_COLOR[attribute];
 
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -559,6 +559,16 @@ export class Renderer {
       ctx.setLineDash([4, 3]);
       ctx.beginPath(); ctx.arc(0, 0, radius + 4, 0, Math.PI * 2); ctx.stroke();
       ctx.setLineDash([]);
+    }
+
+    if (enemy.lbFinalMinion) {
+      const _pt = 0.4 + 0.6 * Math.abs(Math.sin(Date.now() / 160));
+      ctx.strokeStyle = `rgba(200,0,255,${_pt})`;
+      ctx.lineWidth   = 3;
+      ctx.shadowColor = '#CC00FF';
+      ctx.shadowBlur  = 10;
+      ctx.beginPath(); ctx.arc(0, 0, radius + 5, 0, Math.PI * 2); ctx.stroke();
+      ctx.shadowBlur  = 0;
     }
 
     // ── Body ──────────────────────────────────────────────────────────────
