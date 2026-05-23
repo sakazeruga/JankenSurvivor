@@ -792,6 +792,21 @@ export class GameManager {
       boss.lbSkillTimer = LB_P1_SKILL_PERIOD;
       this._executeLbP1Skill(boss, hpRatio);
     }
+
+    // Absorb barrier timing: 3s on / 7s off → ~30% uptime
+    if (!boss.lbAbsorbActive) {
+      boss.lbAbsorbCooldown -= dt;
+      if (boss.lbAbsorbCooldown <= 0) {
+        boss.lbAbsorbActive = true;
+        boss.lbAbsorbTimer  = 3.0;
+      }
+    } else {
+      boss.lbAbsorbTimer -= dt;
+      if (boss.lbAbsorbTimer <= 0) {
+        boss.lbAbsorbActive   = false;
+        boss.lbAbsorbCooldown = 7.0;
+      }
+    }
   }
 
   // ── Last boss: Phase 2 update ─────────────────────────────────────────────
@@ -1346,8 +1361,8 @@ export class GameManager {
       if (enemy.lbFinalPhase) return; // invincible in final phase
       if (enemy.lbTempUltra)  return; // shouldn't happen, but guard
 
-      if (enemy.lastBossPhase === 1 && !bypassAbsorb) {
-        // Always-on absorb barrier: heals instead of taking damage
+      if (enemy.lastBossPhase === 1 && enemy.lbAbsorbActive && !bypassAbsorb) {
+        // Absorb barrier active: heals instead of taking damage
         const mult = (enemy.hp / enemy.maxHp <= 0.5) ? 2.0 : 1.0;
         enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.ceil(dmg * mult));
         this._spawnHitParticles(enemy.x, enemy.y, '#00FF88', 7);

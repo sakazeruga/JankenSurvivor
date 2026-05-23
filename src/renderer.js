@@ -455,13 +455,16 @@ export class Renderer {
             ctx.strokeStyle = lb1rings[r]; ctx.lineWidth = 5 - r;
             ctx.beginPath(); ctx.arc(0, 0, radius + 5 + r * 10, 0, Math.PI * 2); ctx.stroke();
           }
-          const t2 = Date.now() / 180;
-          const pu2 = 0.55 + 0.45 * Math.abs(Math.sin(t2));
-          const sr  = radius + 36;
-          ctx.strokeStyle = `rgba(180,0,0,${pu2})`; ctx.lineWidth = 8;
-          ctx.beginPath(); ctx.arc(0, 0, sr, 0, Math.PI * 2); ctx.stroke();
-          ctx.strokeStyle = `rgba(255,60,60,${pu2 * 0.4})`; ctx.lineWidth = 18;
-          ctx.beginPath(); ctx.arc(0, 0, sr + 6, 0, Math.PI * 2); ctx.stroke();
+          // Pulsing absorb ring: only when barrier is active
+          if (enemy.lbAbsorbActive) {
+            const t2 = Date.now() / 180;
+            const pu2 = 0.55 + 0.45 * Math.abs(Math.sin(t2));
+            const sr  = radius + 36;
+            ctx.strokeStyle = `rgba(180,0,0,${pu2})`; ctx.lineWidth = 8;
+            ctx.beginPath(); ctx.arc(0, 0, sr, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = `rgba(255,60,60,${pu2 * 0.4})`; ctx.lineWidth = 18;
+            ctx.beginPath(); ctx.arc(0, 0, sr + 6, 0, Math.PI * 2); ctx.stroke();
+          }
         } else {
           const lb2rings = ['#9B00FF', '#7700CC', '#550088'];
           for (let r = 0; r < 3; r++) {
@@ -600,8 +603,14 @@ export class Renderer {
           ctx.fillStyle = '#FF2200'; ctx.font = 'bold 13px sans-serif';
           ctx.fillText(`☠ FINAL  残り${Math.ceil(remaining)}s`, 0, statusY);
         } else if (enemy.lastBossPhase === 1) {
-          ctx.fillStyle = '#FF4444'; ctx.font = 'bold 12px sans-serif';
-          ctx.fillText('⊗ ABSORB BARRIER', 0, statusY);
+          if (enemy.lbAbsorbActive) {
+            ctx.fillStyle = '#FF4444'; ctx.font = 'bold 12px sans-serif';
+            ctx.fillText('⊗ ABSORB BARRIER', 0, statusY);
+          } else {
+            const cdSec = Math.ceil(enemy.lbAbsorbCooldown || 0);
+            ctx.fillStyle = '#AA4444'; ctx.font = 'bold 11px sans-serif';
+            ctx.fillText(`ABSORB CD ${cdSec}s`, 0, statusY);
+          }
         }
       } else if (isUltraBoss) {
         if (enemy.ultraCharging) {

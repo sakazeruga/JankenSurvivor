@@ -57,6 +57,10 @@ export class Enemy {
         this.lbSkillIdx    = 0;
         this.lbRushQueue   = 0;
         this.lbRushCT      = 0;
+        // Absorb barrier (Phase 1): ~30% uptime (3s on / 7s off)
+        this.lbAbsorbActive   = false;
+        this.lbAbsorbTimer    = 0;
+        this.lbAbsorbCooldown = 5.0;  // first activation 5s after spawn
         // Phase 2 state (initialized on transition)
         this.lbP2_th         = null;
         this.lbP2_lineQueue  = 0;
