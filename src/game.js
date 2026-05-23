@@ -21,8 +21,8 @@ const GRAND_BOSS_SKILL_PERIOD = 3.5;   // seconds between grand-boss skill uses
 // ── Last boss timers ───────────────────────────────────────────────────────
 const LB_MINION_PERIOD    = 0.30;   // constant minion spawn (phase 1)
 const LB_P1_SKILL_PERIOD  = 9.0;   // rotating skill interval (phase 1)
-const LB_P2_SKILL_PERIOD  = 12.0;  // rotating skill interval (phase 2)
-const LB_LINE_CHARGE_CT   = 2.5;   // default CD between line charges
+const LB_P2_SKILL_PERIOD  = 4.0;   // rotating skill interval (phase 2) ×3 speed
+const LB_LINE_CHARGE_CT   = 0.85;  // default CD between line charges ×3 speed
 
 // ── Ultra boss timers ──────────────────────────────────────────────────────
 const ULTRA_MINION_PERIOD     = BOSS_SUMMON_PERIOD / 3; // 3× faster than normal boss (≈0.39 s)
@@ -407,7 +407,9 @@ export class GameManager {
     this.freeBombs         = 0;
     this.items             = [];
     this.buttonOrder       = [0, 1, 2];  // [0=ROCK,1=SCISSORS,2=PAPER] shuffled by last boss P2
-    this.lbFinalActive     = false;      // last boss final phase flag (speeds up items × 3)
+    this.lbFinalActive     = false;      // last boss final phase flag (speeds up items)
+    this.lbClearTimer      = 0;          // >0 = slo-mo clear sequence running
+    this.lbClearFade       = 0;          // 0→1 white fade to GAME_CLEAR
   }
 
   _loadStage(index) {
@@ -498,6 +500,29 @@ export class GameManager {
   // ── Private: main update ─────────────────────────────────────────────────
 
   _updatePlaying(dt) {
+    // ── Last boss clear sequence: slo-mo → white fade → GAME_CLEAR ───────────
+    if (this.lbClearTimer > 0) {
+      this.lbClearTimer -= dt;
+      const sloDt = dt * 0.08;  // 8× slow motion
+      for (const e of this.enemies)   e.update(sloDt);
+      this.enemies   = this.enemies.filter(e => e.alive);
+      for (const p of this.particles) p.update(sloDt);
+      this.particles = this.particles.filter(p => p.alive);
+      for (const ring of this.bossDeathRings) ring.life -= sloDt * 1.4;
+      this.bossDeathRings = this.bossDeathRings.filter(r => r.life > 0);
+      if (this.bossDeathFlash > 0) this.bossDeathFlash -= sloDt * 1.8;
+      // White fade ramps in over the last 2 seconds
+      const FADE_START = 2.0;
+      if (this.lbClearTimer <= FADE_START) {
+        this.lbClearFade = 1 - this.lbClearTimer / FADE_START;
+      }
+      if (this.lbClearTimer <= 0) {
+        this.lbClearFade = 1;
+        this._checkGameClear();
+      }
+      return;
+    }
+
     if (this.damageFlash    > 0) this.damageFlash    -= dt;
     if (this.bombFlash      > 0) this.bombFlash      -= dt;
     if (this.bossDeathFlash > 0) this.bossDeathFlash -= dt * 1.8;
@@ -834,7 +859,7 @@ export class GameManager {
         this._spawnBossMinion(boss);
       }
       if (boss.lbFinalTimer <= 0) {
-        this._destroyEnemy(boss);
+        this._triggerLbClearSequence(boss);
       }
       return;
     }
@@ -865,7 +890,7 @@ export class GameManager {
     boss.lbP2_lineCT -= dt;
     if (boss.lbP2_lineQueue > 0 && boss.lbP2_lineCT <= 0) {
       boss.lbP2_lineQueue--;
-      boss.lbP2_lineCT = th.t20 ? 2.0 : LB_LINE_CHARGE_CT;
+      boss.lbP2_lineCT = th.t20 ? 0.67 : LB_LINE_CHARGE_CT;
       this._lbSpawnLineCharge();
     }
 
@@ -892,7 +917,7 @@ export class GameManager {
     boss.lbP2_th         = { t80: false, t60: false, t40: false, t20: false };
     boss.lbP2_lineQueue  = 0;
     boss.lbP2_lineCT     = 0;
-    boss.lbP2_skillTimer = 10.0;
+    boss.lbP2_skillTimer = 3.3;   // ×3 speed initial delay
     boss.lbP2_skillIdx   = 0;
     boss.attrCycleTimer  = 0;
 
@@ -951,6 +976,59 @@ export class GameManager {
     // Activate final-phase flags: speed up existing items × 3
     this.lbFinalActive = true;
     for (const item of this.items) item.vy = 1100;
+  }
+
+  // ── Last boss: final-phase end → slo-mo clear sequence ───────────────────
+
+  _triggerLbClearSequence(boss) {
+    // ① SFX ×3 同時再生
+    audio.playSfx(AUDIO.SFX_BOSS_KILL);
+    audio.playSfx(AUDIO.SFX_LAST_BOSS_KILL_1);
+    audio.playSfx(AUDIO.SFX_LAST_BOSS_KILL_2);
+
+    // ② 全残存敵を爆発消滅
+    for (const e of this.enemies) {
+      if (e !== boss && e.alive && !e.exploding) {
+        e.triggerExplosion();
+        this._spawnExplosionParticles(e.x, e.y, ATTR_COLOR[e.attribute]);
+      }
+    }
+
+    // ③ ボス超大爆発パーティクル
+    const burst = ['#FF0000','#FF7700','#FFFF00','#FF44FF','#FFFFFF','#00FFFF','#9900FF'];
+    for (const color of burst) {
+      for (let i = 0; i < 55; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd   = 200 + Math.random() * 700;
+        this.particles.push(new Particle({
+          x: boss.x, y: boss.y, color,
+          radius: 8 + Math.random() * 22,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd - 180,
+          life: 0.8 + Math.random() * 2.5,
+        }));
+      }
+    }
+
+    // ④ 多段衝撃波リング
+    this.bossDeathRings = [
+      { x: boss.x, y: boss.y, maxRadius: 650, life: 3.0, maxLife: 3.0, color: '#9900FF' },
+      { x: boss.x, y: boss.y, maxRadius: 580, life: 2.7, maxLife: 2.7, color: '#FF0000' },
+      { x: boss.x, y: boss.y, maxRadius: 470, life: 2.3, maxLife: 2.3, color: '#FF6600' },
+      { x: boss.x, y: boss.y, maxRadius: 360, life: 1.9, maxLife: 1.9, color: '#FFCC00' },
+      { x: boss.x, y: boss.y, maxRadius: 240, life: 1.4, maxLife: 1.4, color: '#FFFFFF' },
+    ];
+    this.bossDeathFlash = 7.0;
+
+    // ⑤ ボス本体消滅・弾幕クリア
+    boss.triggerExplosion();
+    this.pendingDefs = [];
+    this.bullets     = [];
+    this.lasers      = [];
+
+    // ⑥ スローモーション演出開始（4.5s → GAME_CLEAR）
+    this.lbClearTimer = 4.5;
+    this.lbClearFade  = 0;
   }
 
   // ── Last boss: helpers ────────────────────────────────────────────────────
@@ -1079,7 +1157,7 @@ export class GameManager {
         });
         e.noShield    = true;
         e.lbTempUltra = true;
-        e.lbTempTimer = 8.0;
+        e.lbTempTimer = 2.7;  // ×3 speed: 8.0→2.7s
         this.enemies.push(e);
       }
       this.cautionTimer = 1.8;

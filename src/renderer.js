@@ -423,6 +423,12 @@ export class Renderer {
       ctx.shadowBlur   = 0;
       ctx.restore();
     }
+
+    // ── Last boss clear: white fade to GAME_CLEAR ────────────────────────
+    if ((gm.lbClearFade || 0) > 0) {
+      ctx.fillStyle = `rgba(255,255,255,${Math.min(1, gm.lbClearFade)})`;
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    }
   }
 
   // ── In-game active skill panel (top-right floating) ──────────────────────

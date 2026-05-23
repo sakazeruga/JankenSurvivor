@@ -137,5 +137,7 @@ export const AUDIO = {
   SFX_START:      'assets/wav/Start_or_NextStage.mp3',
   SFX_WARNING:      'assets/wav/Warning.mp3',
   SFX_CAUTION:      'assets/wav/Caution.mp3',
-  SFX_ULTRA_CHARGE: 'assets/wav/HugeBossCharge.mp3',
+  SFX_ULTRA_CHARGE:     'assets/wav/HugeBossCharge.mp3',
+  SFX_LAST_BOSS_KILL_1: 'assets/wav/LastBossKill1.mp3',
+  SFX_LAST_BOSS_KILL_2: 'assets/wav/LastBossKill2.mp3',
 };
