@@ -533,8 +533,10 @@ export class Renderer {
     }
 
     if (isMidBoss) {
-      const auraColor = isRushBoss ? '#FF0000' : '#FF8C00';
-      const t     = Date.now() / (isRushBoss ? 250 : 500);
+      const auraColor = enemy.lbFinalMinion ? '#CC00FF'
+                      : isRushBoss          ? '#FF0000'
+                      :                       '#FF8C00';
+      const t     = Date.now() / (enemy.lbFinalMinion ? 180 : isRushBoss ? 250 : 500);
       const pulse = 0.65 + 0.35 * Math.sin(t);
       const auraR = radius * (isRushBoss ? 3.0 : 2.6);
       const grad2 = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, auraR);
@@ -783,7 +785,7 @@ export class Renderer {
       const barColor = isLastBoss ? (enemy.lastBossPhase === 1 ? '#8B0000' : '#9B00FF')
         : isUltraBoss ? '#CC0000'
         : isBoss ? (isGrandBoss ? '#CC00FF' : '#FFD700')
-        : isMidBoss ? (isRushBoss ? '#FF3300' : '#FF8C00')
+        : isMidBoss ? (enemy.lbFinalMinion ? '#CC00FF' : isRushBoss ? '#FF3300' : '#FF8C00')
         : color;
       ctx.fillStyle = barColor;
       ctx.fillRect(bx, by, bw * (hp / maxHp), bh);
@@ -879,25 +881,45 @@ export class Renderer {
     const { ctx } = this;
     const sz   = 30;
     const bob  = Math.sin(item.bobTimer) * 3;
+    const isShield = item.kind !== 'common' && item.stat === 'shield';
+    // シールドはボブタイマーに合わせてパルス
+    const pulse = isShield ? 0.55 + 0.45 * Math.abs(Math.sin(item.bobTimer * 2.2)) : 1.0;
 
     ctx.save();
     ctx.translate(item.x, item.y + bob);
 
     // 外枠グロー
-    const borderColor = item.kind === 'common' ? '#FFD700' : '#5BC8FF';
-    ctx.shadowBlur  = 12;
+    const borderColor = item.kind === 'common' ? '#FFD700'
+                      : isShield               ? '#00E5FF'
+                      :                          '#5BC8FF';
+    const glowBlur    = isShield ? 18 + pulse * 14 : 12;
+    ctx.shadowBlur  = glowBlur;
     ctx.shadowColor = borderColor;
 
     // 縁のみ（塗りなし）
-    ctx.fillStyle   = 'rgba(0,0,0,0.35)';
+    ctx.fillStyle   = isShield ? `rgba(0,120,200,${0.18 + pulse * 0.14})` : 'rgba(0,0,0,0.35)';
     ctx.strokeStyle = borderColor;
-    ctx.lineWidth   = 2.5;
+    ctx.lineWidth   = isShield ? 3.5 : 2.5;
     ctx.beginPath();
     ctx.roundRect(-sz / 2, -sz / 2, sz, sz, 6);
     ctx.fill();
     ctx.stroke();
-    ctx.shadowBlur = 0;
 
+    // シールド：外側にパルスリング
+    if (isShield) {
+      ctx.globalAlpha = pulse * 0.55;
+      ctx.strokeStyle = '#00E5FF';
+      ctx.lineWidth   = 2;
+      ctx.shadowBlur  = 10;
+      ctx.shadowColor = '#00E5FF';
+      const rr = sz / 2 + 5 + pulse * 4;
+      ctx.beginPath();
+      ctx.roundRect(-rr, -rr, rr * 2, rr * 2, 8);
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+    }
+
+    ctx.shadowBlur = 0;
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
 
@@ -914,8 +936,14 @@ export class Renderer {
       // 汎用：中央に大きくアイコン
       const icon = item.stat === 'score' ? '🎁' : item.stat === 'bomb' ? '💣'
                  : item.stat === 'shield' ? '🛡' : '🔋';
-      ctx.font = `${sz * 0.55}px sans-serif`;
-      ctx.fillText(icon, 0, 1);
+      // シールドは絵文字にもシアングローを乗せる
+      if (isShield) {
+        ctx.shadowColor = '#00E5FF';
+        ctx.shadowBlur  = 12 + pulse * 10;
+      }
+      ctx.font = `${isShield ? sz * 0.62 : sz * 0.55}px sans-serif`;
+      ctx.fillText(icon, 0, isShield ? 1.5 : 1);
+      ctx.shadowBlur = 0;
     }
 
     ctx.restore();

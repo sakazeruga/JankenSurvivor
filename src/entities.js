@@ -144,13 +144,18 @@ export class Bullet {
     this.isSplit    = isSplit;
     this.isFragment = false;
     this.pierceHit  = new Set();
+    this._life      = isPierce ? 6.0 : 4.0;  // 時限消滅（秒）
 
     this.vx = 0;
     this.vy = -460 * speedMult;
   }
 
   update(dt) {
-    if (this.target && this.target.alive && !this.target.exploding) {
+    // 時限消滅
+    this._life -= dt;
+    if (this._life <= 0) { this.alive = false; return; }
+
+    if (this.target && this.target.alive && !this.target.exploding && !this.pierceHit.has(this.target)) {
       const dx   = this.target.x - this.x;
       const dy   = this.target.y - this.y;
       const dist = Math.sqrt(dx * dx + dy * dy);

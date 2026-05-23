@@ -848,7 +848,7 @@ export class GameManager {
       if (boss.lbFinalSkillTimer <= 0) {
         const shieldDur = 0.8 + 0.2 * this.shieldCharges;
         boss.lbFinalSkillTimer = Math.max(1.5, 5.0 - shieldDur) + 0.5 + Math.random() * 0.5;
-        this._lbSpawnLineCharge();
+        this._lbSpawnLineCharge(true);  // 最終局面: 特攻マーク付き
         // Drop battery item (fast fall)
         this._spawnDropItem(boss.x, boss.y + 20, 'general', null, 'battery');
       }
@@ -1066,19 +1066,21 @@ export class GameManager {
     }));
   }
 
-  _lbSpawnLineCharge() {
+  _lbSpawnLineCharge(isFinal = false) {
     const bossExp  = 5 + (LAST_STAGE_IDX - 5) * 0.6;
     const midHp    = Math.round(10 * Math.pow(2, bossExp));
     const count    = 5;
     for (let i = 0; i < count; i++) {
       const x = CANVAS_W * (i + 0.5) / count;
-      this.enemies.push(new Enemy({
+      const e = new Enemy({
         x, y: SPAWN_Y,
         attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
         speed: 220 * this.speedMultiplier,
         hp: Math.max(1, Math.round(midHp * 0.25)),
         isMidBoss: true, drawImmune: true,
-      }));
+      });
+      if (isFinal) e.lbFinalMinion = true;
+      this.enemies.push(e);
     }
     audio.playSfx(AUDIO.SFX_CAUTION);
   }
@@ -1216,7 +1218,7 @@ export class GameManager {
         this.enemies.push(new Enemy({ x, y,
           attribute: ALL_ATTRS[Math.floor(Math.random() * 3)],
           speed: 45 * this.speedMultiplier,
-          hp: Math.max(1, Math.round(midHp * 0.15)),
+          hp: Math.round(20 * Math.pow(2, bossExp)),  // 通常ボスレベル（≈3394 HP）
           enemyType: ENEMY_TYPE.LARGE, isDummy: true }));
       }
 
@@ -1390,6 +1392,21 @@ export class GameManager {
     if (yMin >= yMax) return;
     const y = yMin + Math.random() * (yMax - yMin);
 
+    // ── 最終局面: 大型雑魚の大量湧き（ペナルティ・紫色なし）────────────
+    if (boss.lbFinalPhase) {
+      const bossExp  = 5 + (LAST_STAGE_IDX - 5) * 0.6;  // 7.4
+      const minionHp = Math.round(10 * Math.pow(2, bossExp) * 0.05);  // ≈85 HP
+      this.enemies.push(new Enemy({
+        x, y,
+        attribute: attr,
+        speed: 100 * this.speedMultiplier,
+        hp: minionHp,
+        isBoss: false,
+        enemyType: ENEMY_TYPE.LARGE,
+      }));
+      return;
+    }
+
     let drawImmune = false;
     let enemyType  = ENEMY_TYPE.NORMAL;
     if (this.difficulty === DIFFICULTY.HARD && Math.random() < 0.20) {
@@ -1411,8 +1428,6 @@ export class GameManager {
       enemyType,
       drawImmune,
     });
-    // 最終局面ミニオン: 紫色化 & ペナルティ×5 フラグ
-    if (boss.lbFinalPhase) e.lbFinalMinion = true;
     this.enemies.push(e);
   }
 
@@ -1660,10 +1675,10 @@ export class GameManager {
     if (enemy.isDummy) return; // ダミー敵は素通りしてもペナルティなし
     const stageMult = this.stageIndex / 3 + 1;
     const diffMult  = DIFFICULTY_CONFIG[this.difficulty].damageMult;
-    const typeMult  = enemy.isBoss      ? 3
-      : enemy.isRushBoss   ? 45  // 3× mid-boss (highly punishing)
-      : enemy.isMidBoss    ? 15
-      : enemy.lbFinalMinion ? 5  // 最終局面特攻ミニオン: ×5（ワンミス即死級）
+    const typeMult  = enemy.isBoss        ? 3
+      : enemy.isRushBoss     ? 45  // 3× mid-boss (highly punishing)
+      : enemy.lbFinalMinion  ? 50  // 最終局面特攻ライン: ×50（1列フルヒット≈100万）
+      : enemy.isMidBoss      ? 15
       : enemy.enemyType === ENEMY_TYPE.LARGE  ? 5
       : enemy.enemyType === ENEMY_TYPE.MEDIUM ? 3
       : 1;
