@@ -70,6 +70,112 @@ export class Renderer {
     canvas.height = CANVAS_H;
     this._fitToWindow();
     window.addEventListener('resize', () => this._fitToWindow());
+
+    // Electric grid spark state
+    this._gridSparks     = [];
+    this._gridSpawnTimer = 0;
+    this._lastGridTime   = performance.now();
+  }
+
+  // ── Electric grid helpers ─────────────────────────────────────────────────
+
+  /** Returns [r, g, b] theme for the grid based on current game state */
+  _getGridTheme(gm) {
+    if (gm.lbFinalActive)                return [180,  0, 255]; // purple  – final phase
+    if (gm.stageIndex >= LAST_STAGE_IDX) return [255, 50,  20]; // red     – stage 10
+    if (gm.stageIndex >= 6)              return [255, 210, 20]; // yellow  – stages 7-9
+    if (gm.stageIndex >= 2)              return [ 30, 140, 255]; // blue    – stages 3-6
+    return [200, 200, 220];                                       // dim white – stages 1-2
+  }
+
+  /** Create a new spark object travelling along a grid line */
+  _spawnGridSpark(isFinal) {
+    const isH    = Math.random() < 0.5;
+    const speed  = (280 + Math.random() * 380) * (Math.random() < 0.5 ? 1 : -1);
+    const tailLen = 45 + Math.random() * 80;
+    const jitter  = Array.from({ length: 3 }, () => (Math.random() - 0.5) * (isFinal ? 9 : 5));
+    if (isH) {
+      const rowCount  = Math.floor(KILL_LINE_Y / 40) + 1;
+      const lineCoord = Math.floor(Math.random() * rowCount) * 40;
+      return { axis: 'h', lineCoord, pos: speed > 0 ? 0 : CANVAS_W, speed, tailLen, jitter };
+    } else {
+      const colCount  = Math.floor(CANVAS_W / 39) + 1;
+      const lineCoord = Math.floor(Math.random() * colCount) * 39;
+      return { axis: 'v', lineCoord, pos: speed > 0 ? 0 : KILL_LINE_Y, speed, tailLen, jitter };
+    }
+  }
+
+  /** Advance spark positions, remove finished ones, spawn new ones */
+  _updateGridSparks(dt, gm) {
+    const isFinal = !!(gm.lbFinalActive);
+    for (const s of this._gridSparks) s.pos += s.speed * dt;
+    this._gridSparks = this._gridSparks.filter(s => {
+      const max = s.axis === 'h' ? CANVAS_W : KILL_LINE_Y;
+      return s.speed > 0 ? s.pos <= max + s.tailLen : s.pos >= -s.tailLen;
+    });
+    const maxSparks = isFinal ? 28 : 12;
+    const baseRate  = isFinal ? 0.07 : 0.22;
+    this._gridSpawnTimer -= dt;
+    if (this._gridSpawnTimer <= 0 && this._gridSparks.length < maxSparks) {
+      this._gridSpawnTimer = baseRate + Math.random() * baseRate;
+      this._gridSparks.push(this._spawnGridSpark(isFinal));
+    }
+  }
+
+  /** Draw all sparks with gradient tail + zigzag + head glow */
+  _drawGridSparks(tr, tg, tb) {
+    const { ctx } = this;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, CANVAS_W, KILL_LINE_Y); ctx.clip();
+
+    for (const s of this._gridSparks) {
+      const sign    = Math.sign(s.speed);
+      const headPos = s.pos;
+      const tailPos = s.pos - sign * s.tailLen;
+
+      // Gradient: transparent at tail → bright at head
+      let grad;
+      if (s.axis === 'h') grad = ctx.createLinearGradient(tailPos, s.lineCoord, headPos, s.lineCoord);
+      else                grad = ctx.createLinearGradient(s.lineCoord, tailPos, s.lineCoord, headPos);
+      grad.addColorStop(0,    `rgba(${tr},${tg},${tb},0)`);
+      grad.addColorStop(0.55, `rgba(${tr},${tg},${tb},0.4)`);
+      grad.addColorStop(1,    `rgba(${tr},${tg},${tb},0.95)`);
+
+      ctx.shadowColor = `rgb(${tr},${tg},${tb})`;
+      ctx.shadowBlur  = 10;
+      ctx.strokeStyle = grad;
+      ctx.lineWidth   = 2;
+
+      // Zigzag path via stored jitter points
+      const nSeg = s.jitter.length + 1;
+      ctx.beginPath();
+      if (s.axis === 'h') {
+        ctx.moveTo(tailPos, s.lineCoord);
+        for (let i = 0; i < s.jitter.length; i++) {
+          const t = (i + 1) / nSeg;
+          ctx.lineTo(tailPos + (headPos - tailPos) * t, s.lineCoord + s.jitter[i]);
+        }
+        ctx.lineTo(headPos, s.lineCoord);
+      } else {
+        ctx.moveTo(s.lineCoord, tailPos);
+        for (let i = 0; i < s.jitter.length; i++) {
+          const t = (i + 1) / nSeg;
+          ctx.lineTo(s.lineCoord + s.jitter[i], tailPos + (headPos - tailPos) * t);
+        }
+        ctx.lineTo(s.lineCoord, headPos);
+      }
+      ctx.stroke();
+
+      // Bright head dot
+      ctx.shadowBlur  = 16;
+      ctx.fillStyle   = `rgba(255,255,255,0.95)`;
+      ctx.beginPath();
+      if (s.axis === 'h') ctx.arc(headPos, s.lineCoord, 2.5, 0, Math.PI * 2);
+      else                ctx.arc(s.lineCoord, headPos, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
   }
 
   _fitToWindow() {
@@ -110,8 +216,13 @@ export class Renderer {
     ctx.fillStyle = COLORS.BG;
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-    // Grid
-    ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+    // Grid – theme color + electric sparks
+    const _now   = performance.now();
+    const _gridDt = Math.min((_now - this._lastGridTime) / 1000, 0.1);
+    this._lastGridTime = _now;
+    const [_tr, _tg, _tb] = this._getGridTheme(gm);
+
+    ctx.strokeStyle = `rgba(${_tr},${_tg},${_tb},0.03)`;
     ctx.lineWidth   = 1;
     for (let x = 0; x <= CANVAS_W; x += 39) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, KILL_LINE_Y); ctx.stroke();
@@ -119,6 +230,9 @@ export class Renderer {
     for (let y = 0; y <= KILL_LINE_Y; y += 40) {
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_W, y); ctx.stroke();
     }
+
+    this._updateGridSparks(_gridDt, gm);
+    this._drawGridSparks(_tr, _tg, _tb);
 
     // Kill line
     ctx.strokeStyle = 'rgba(255,255,255,0.18)';
