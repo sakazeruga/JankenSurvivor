@@ -88,37 +88,44 @@ export class Renderer {
     return [200, 200, 220];                                       // dim white – stages 1-2
   }
 
-  /** Create a new spark object travelling along a grid line */
-  _spawnGridSpark(isFinal) {
-    const isH    = Math.random() < 0.5;
-    const speed  = (280 + Math.random() * 380) * (Math.random() < 0.5 ? 1 : -1);
-    const tailLen = 45 + Math.random() * 80;
-    const jitter  = Array.from({ length: 3 }, () => (Math.random() - 0.5) * (isFinal ? 9 : 5));
-    if (isH) {
-      const rowCount  = Math.floor(KILL_LINE_Y / 40) + 1;
-      const lineCoord = Math.floor(Math.random() * rowCount) * 40;
-      return { axis: 'h', lineCoord, pos: speed > 0 ? 0 : CANVAS_W, speed, tailLen, jitter };
-    } else {
-      const colCount  = Math.floor(CANVAS_W / 39) + 1;
-      const lineCoord = Math.floor(Math.random() * colCount) * 39;
-      return { axis: 'v', lineCoord, pos: speed > 0 ? 0 : KILL_LINE_Y, speed, tailLen, jitter };
-    }
+  /** Create a new spark: always vertical, always top→bottom, speed/jitter scale with stage */
+  _spawnGridSpark(gm) {
+    const isFinal = !!(gm.lbFinalActive);
+    const si      = gm.stageIndex; // 0-9
+
+    // Speed: 120 px/s at stage 1 → 480 px/s at stage 10, final phase ×1.5
+    const baseSpeed = isFinal ? 700 : 120 + si * 40;
+    const speedVar  = isFinal ? 250 : 40  + si * 20;
+    const speed     = baseSpeed + Math.random() * speedVar; // always positive = top→bottom
+
+    const tailLen = 40 + Math.random() * 70;
+    const jAmp    = isFinal ? 10 : 3 + si * 0.6; // jitter grows slightly with stage
+    const jitter  = Array.from({ length: 3 }, () => (Math.random() - 0.5) * 2 * jAmp);
+
+    const colCount  = Math.floor(CANVAS_W / 39) + 1;
+    const lineCoord = Math.floor(Math.random() * colCount) * 39;
+
+    return { axis: 'v', lineCoord, pos: 0, speed, tailLen, jitter };
   }
 
   /** Advance spark positions, remove finished ones, spawn new ones */
   _updateGridSparks(dt, gm) {
     const isFinal = !!(gm.lbFinalActive);
+    const si      = gm.stageIndex;
+
     for (const s of this._gridSparks) s.pos += s.speed * dt;
-    this._gridSparks = this._gridSparks.filter(s => {
-      const max = s.axis === 'h' ? CANVAS_W : KILL_LINE_Y;
-      return s.speed > 0 ? s.pos <= max + s.tailLen : s.pos >= -s.tailLen;
-    });
-    const maxSparks = isFinal ? 28 : 12;
-    const baseRate  = isFinal ? 0.07 : 0.22;
+    // Only top→bottom: done when tail passes KILL_LINE_Y
+    this._gridSparks = this._gridSparks.filter(s => s.pos - s.tailLen < KILL_LINE_Y);
+
+    // Density scales with stage: 4 sparks max at s0 → 30 at s9, final phase 40
+    const maxSparks = isFinal ? 40 : Math.round(4 + si * 2.8);
+    // Spawn interval: 0.50s at s0 → 0.08s at s9, final phase 0.04s
+    const baseRate  = isFinal ? 0.04 : Math.max(0.06, 0.50 - si * 0.047);
+
     this._gridSpawnTimer -= dt;
     if (this._gridSpawnTimer <= 0 && this._gridSparks.length < maxSparks) {
-      this._gridSpawnTimer = baseRate + Math.random() * baseRate;
-      this._gridSparks.push(this._spawnGridSpark(isFinal));
+      this._gridSpawnTimer = baseRate + Math.random() * baseRate * 0.6;
+      this._gridSparks.push(this._spawnGridSpark(gm));
     }
   }
 
