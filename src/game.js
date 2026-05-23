@@ -26,6 +26,7 @@ const LB_LINE_CHARGE_CT   = 2.5;   // default CD between line charges
 
 // ── Ultra boss timers ──────────────────────────────────────────────────────
 const ULTRA_MINION_PERIOD     = BOSS_SUMMON_PERIOD / 3; // 3× faster than normal boss (≈0.39 s)
+const LB_FINAL_MINION_PERIOD  = ULTRA_MINION_PERIOD / 3; // final phase: 3× ultra boss rate (≈0.13 s)
 const ULTRA_PHASE_SKILL_PERIOD= 10.0;  // mid-boss + draw-immune spawn interval (HP ≤ 90%)
 const ULTRA_RUSH_PERIOD       = 14.0;  // rush attack interval (HP ≤ 50%)
 const ULTRA_CHARGE_DURATION   = 2.5;   // charge wind-up before rush boss spawns
@@ -177,10 +178,12 @@ export class GameManager {
 
   // ── Drop item spawn ───────────────────────────────────────────────────────
   _spawnDropItem(x, y, kindOverride = null, attrOverride = null, statOverride = null) {
-    if (kindOverride) {
-      this.items.push(new DropItem(x, y, kindOverride, attrOverride, statOverride));
-      return;
-    }
+    const _addItem = (k, a, s) => {
+      const it = new DropItem(x, y, k, a, s);
+      if (this.lbFinalActive) it.vy = 330; // final phase: 3× fall speed
+      this.items.push(it);
+    };
+    if (kindOverride) { _addItem(kindOverride, attrOverride, statOverride); return; }
     const isGeneral = Math.random() < 0.3;
     let kind, attribute = null, stat;
     if (isGeneral) {
@@ -193,7 +196,7 @@ export class GameManager {
       const opts = ['power', 'speed', 'bullets'];
       stat = opts[Math.floor(Math.random() * opts.length)];
     }
-    this.items.push(new DropItem(x, y, kind, attribute, stat));
+    _addItem(kind, attribute, stat);
   }
 
   // ── Drop item collect ─────────────────────────────────────────────────────
@@ -404,6 +407,7 @@ export class GameManager {
     this.freeBombs         = 0;
     this.items             = [];
     this.buttonOrder       = [0, 1, 2];  // [0=ROCK,1=SCISSORS,2=PAPER] shuffled by last boss P2
+    this.lbFinalActive     = false;      // last boss final phase flag (speeds up items × 3)
   }
 
   _loadStage(index) {
@@ -820,8 +824,14 @@ export class GameManager {
         const shieldDur = 0.8 + 0.2 * this.shieldCharges;
         boss.lbFinalSkillTimer = Math.max(1.5, 5.0 - shieldDur) + 0.5 + Math.random() * 0.5;
         this._lbSpawnLineCharge();
-        // Drop battery item
+        // Drop battery item (fast fall)
         this._spawnDropItem(boss.x, boss.y + 20, 'general', null, 'battery');
+      }
+      // Massive minion flood: 3× ultra boss rate
+      boss.lbFinalMinionTimer -= dt;
+      if (boss.lbFinalMinionTimer <= 0) {
+        boss.lbFinalMinionTimer = LB_FINAL_MINION_PERIOD;
+        this._spawnBossMinion(boss);
       }
       if (boss.lbFinalTimer <= 0) {
         this._destroyEnemy(boss);
@@ -937,6 +947,10 @@ export class GameManager {
         this._spawnExplosionParticles(e.x, e.y, ATTR_COLOR[e.attribute]);
       }
     }
+
+    // Activate final-phase flags: speed up existing items × 3
+    this.lbFinalActive = true;
+    for (const item of this.items) item.vy = 330;
   }
 
   // ── Last boss: helpers ────────────────────────────────────────────────────

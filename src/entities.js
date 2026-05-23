@@ -68,9 +68,10 @@ export class Enemy {
         this.lbP2_skillTimer = 0;
         this.lbP2_skillIdx   = 0;
         // Final phase
-        this.lbFinalPhase      = false;
-        this.lbFinalTimer      = 0;
-        this.lbFinalSkillTimer = 0;
+        this.lbFinalPhase       = false;
+        this.lbFinalTimer       = 0;
+        this.lbFinalSkillTimer  = 0;
+        this.lbFinalMinionTimer = 0;
       } else {
         // ── Grand boss / Normal boss ──────────────────────────────────────
         this.radius           = isGrandBoss ? GRAND_BOSS_RADIUS : BOSS_RADIUS;
