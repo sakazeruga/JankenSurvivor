@@ -1684,16 +1684,14 @@ export class GameManager {
       : 1;
     const penalty   = Math.round(BASE_HIT_PENALTY * stageMult * diffMult * typeMult);
 
-    // 最終局面では守護盾は発動しない（特攻ライン貫通を防ぐため）
-    if (!enemy.isBoss && !this.lbFinalActive) {
-      // Already invincible — block for free
+    if (!enemy.isBoss) {
+      // 無敵中は常にブロック（能動発動した無敵も最終局面で有効）
       if (this.shieldInvincTimer > 0) {
         this.damageFlash = 0.2;
         return;
       }
-      // Shield ready (charges exist and not on CT) — activate invincibility
-      if (this.shieldCharges > 0 && this.shieldCTTimer <= 0) {
-        // Lv1=1.0s, Lv2=1.2s, Lv3=1.4s …
+      // 最終局面では受動発動（被弾時の自動起動）のみ無効
+      if (!this.lbFinalActive && this.shieldCharges > 0 && this.shieldCTTimer <= 0) {
         this.shieldInvincTimer = 0.8 + 0.2 * this.shieldCharges;
         this.damageFlash = 0.3;
         return;
