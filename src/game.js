@@ -1609,11 +1609,16 @@ export class GameManager {
     this.items = [];
     this.buttonOrder = [0, 1, 2]; // ボタンシャッフルをリセット
 
+    const nextWave    = this.waveIndex + 1;
+    const isLastWave  = nextWave >= this.stageConfig.waveCount;
+
+    // ラストステージの最終Waveクリア → スキルショップをスキップして即クリア画面へ
+    if (isLastWave && this._checkGameClear()) return;
+
     // All 3 waves get a skill select; after wave 3 the shop leads to next stage
     this._generateSkillOffer();
     this.state = GameState.WAVE_RESULT;
-    const nextWave = this.waveIndex + 1;
-    this._nextWaveIdx = nextWave < this.stageConfig.waveCount ? nextWave : -1;
+    this._nextWaveIdx = isLastWave ? -1 : nextWave;
   }
 
   // ── Private: laser hit test ──────────────────────────────────────────────
