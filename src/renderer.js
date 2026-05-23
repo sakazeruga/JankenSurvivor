@@ -1017,7 +1017,12 @@ export class Renderer {
       ctx.font = '13px sans-serif';
       const inv = gm.shieldInvincTimer || 0;
       const ct  = gm.shieldCTTimer    || 0;
-      if (inv > 0) {
+      if (gm.lbFinalActive) {
+        // 最終局面: 盾無効を赤で警告
+        const _blink = Math.floor(Date.now() / 400) % 2 === 0;
+        ctx.fillStyle = _blink ? '#FF3333' : '#AA1111';
+        ctx.fillText(`🛡 最終局面 無効！`, pbx - 6, 52);
+      } else if (inv > 0) {
         ctx.fillStyle = '#00DDFF';
         ctx.fillText(`🛡 Lv.${gm.shieldCharges} ▶${inv.toFixed(1)}s`, pbx - 6, 52);
       } else if (ct > 0) {
@@ -1070,7 +1075,9 @@ export class Renderer {
     const siv = gm.shieldInvincTimer;
     const sct = gm.shieldCTTimer;
     let shieldBg, shieldAlpha, shieldLabel;
-    if (sc === 0) {
+    if (gm.lbFinalActive) {
+      shieldBg = '#550000'; shieldAlpha = 0.9; shieldLabel = '🛡 最終局面：無効';
+    } else if (sc === 0) {
       shieldBg = '#555'; shieldAlpha = 0.35; shieldLabel = '🛡 なし';
     } else if (siv > 0) {
       shieldBg = '#1E78FF'; shieldAlpha = 1.0; shieldLabel = `🛡 無敵 ${siv.toFixed(1)}s`;

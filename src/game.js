@@ -1392,7 +1392,7 @@ export class GameManager {
     if (yMin >= yMax) return;
     const y = yMin + Math.random() * (yMax - yMin);
 
-    // ── 最終局面: 大型雑魚の大量湧き（ペナルティ・紫色なし）────────────
+    // ── 最終局面: 雑魚の大量湧き（NORMAL・高耐久・ペナルティ・紫色なし）──
     if (boss.lbFinalPhase) {
       const bossExp  = 5 + (LAST_STAGE_IDX - 5) * 0.6;  // 7.4
       const minionHp = Math.round(10 * Math.pow(2, bossExp) * 0.05);  // ≈85 HP
@@ -1402,7 +1402,7 @@ export class GameManager {
         speed: 100 * this.speedMultiplier,
         hp: minionHp,
         isBoss: false,
-        enemyType: ENEMY_TYPE.LARGE,
+        // NORMAL type: 通常サイズ・chain爆発小・スコア通常
       }));
       return;
     }
@@ -1684,7 +1684,8 @@ export class GameManager {
       : 1;
     const penalty   = Math.round(BASE_HIT_PENALTY * stageMult * diffMult * typeMult);
 
-    if (!enemy.isBoss) {
+    // 最終局面では守護盾は発動しない（特攻ライン貫通を防ぐため）
+    if (!enemy.isBoss && !this.lbFinalActive) {
       // Already invincible — block for free
       if (this.shieldInvincTimer > 0) {
         this.damageFlash = 0.2;
