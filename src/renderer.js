@@ -434,31 +434,71 @@ export class Renderer {
   // ── In-game active skill panel (top-right floating) ──────────────────────
 
   _drawActiveSkillPanel(gm) {
-    const entries = Object.entries(gm.skills || {}).filter(([, v]) => v > 0);
-    if (entries.length === 0) return;
-
     const { ctx } = this;
-    const rowH    = 15;
-    const panelW  = 90;
-    const px      = CANVAS_W - 4;
-    const py      = 76;
-    const panelH  = entries.length * rowH + 6;
+    const skills  = gm.skills || {};
+
+    // 属性グループ定義（表示順固定）
+    const GROUPS = [
+      { attr: 'ROCK',     sym: '✊', color: '#E74C3C', label: 'グー',
+        ids: ['com_bullets','com_speed','com_power','rare_pierce'] },
+      { attr: 'SCISSORS', sym: '✌', color: '#2ECC71', label: 'チョキ',
+        ids: ['com_bullets','com_speed','com_power','rare_split'] },
+      { attr: 'PAPER',    sym: '✋', color: '#3498DB', label: 'パー',
+        ids: ['com_bullets','com_speed','com_power','rare_laser'] },
+      { attr: 'UTIL',     sym: '★', color: '#E67E22', label: '汎用',
+        ids: ['util_bomb','util_score','rare_shield','rare_power'] },
+    ];
+    const ABBREV = {
+      com_bullets: '弾+', com_speed: '速+', com_power: '攻+',
+      rare_pierce: '貫通', rare_split: '分裂', rare_laser: 'レーザー',
+      util_bomb: 'ボム', util_score: 'スコア', rare_shield: '守護盾', rare_power: '全力',
+    };
+
+    // 表示行を構築
+    const rows = [];
+    for (const g of GROUPS) {
+      const found = [];
+      for (const id of g.ids) {
+        const fullKey = g.attr === 'UTIL' ? id : `${g.attr}_${id}`;
+        const lv = skills[fullKey];
+        if (lv > 0) found.push({ label: ABBREV[id] || id, level: lv, rare: id.startsWith('rare_') });
+      }
+      if (found.length === 0) continue;
+      rows.push({ type: 'header', sym: g.sym, label: g.label, color: g.color });
+      for (const s of found) rows.push({ type: 'skill', ...s, color: g.color });
+    }
+    if (rows.length === 0) return;
+
+    const rowH   = 13;
+    const panelW = 92;
+    const lx     = CANVAS_W - panelW - 4;  // 左端X
+    const py     = 76;
+    const panelH = rows.length * rowH + 6;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.beginPath();
-    ctx.roundRect(px - panelW, py, panelW, panelH, 4);
-    ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.60)';
+    ctx.beginPath(); ctx.roundRect(lx, py, panelW, panelH, 4); ctx.fill();
 
-    ctx.textAlign    = 'right';
     ctx.textBaseline = 'top';
-    ctx.font         = '9px sans-serif';
 
-    for (let i = 0; i < entries.length; i++) {
-      const [key, level] = entries[i];
-      const meta = skillKeyMeta(key);
-      ctx.fillStyle = meta.color;
-      ctx.fillText(`${meta.label} Lv.${level}`, px - 4, py + 3 + i * rowH);
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const y   = py + 3 + i * rowH;
+      if (row.type === 'header') {
+        // ヘッダー：背景帯 + 属性シンボル
+        ctx.fillStyle = row.color + '33';
+        ctx.fillRect(lx, y - 1, panelW, rowH + 1);
+        ctx.font      = 'bold 9px sans-serif';
+        ctx.fillStyle = row.color;
+        ctx.textAlign = 'left';
+        ctx.fillText(`${row.sym} ${row.label}`, lx + 4, y);
+      } else {
+        // スキル行：右寄せ、レアは太字
+        ctx.font      = row.rare ? 'bold 9px sans-serif' : '9px sans-serif';
+        ctx.fillStyle = row.rare ? '#FFD700' : row.color;
+        ctx.textAlign = 'right';
+        ctx.fillText(`${row.label} Lv.${row.level}`, lx + panelW - 4, y);
+      }
     }
     ctx.restore();
   }
